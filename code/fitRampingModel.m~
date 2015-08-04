@@ -189,27 +189,33 @@ for ss = 2:totalSamples
         if(ss <= 2)
             g_delta = min(particleParams.learnStepSize.start);
             fprintf('Starting Langevin step size at %f\n',g_delta);
-        elseif(mod(ss-1, params.rampSampler.MALAadjust) == 0)
-            acceptPercent = mean(acceptanceCount.sample(ss-params.rampSampler.MALAadjust:ss-1));
-            if(g_delta > params.rampSampler.epsilon_min && (acceptPercent < params.rampSampler.accept_min))
-                g_delta = max(g_delta/params.rampSampler.adjustRate,params.rampSampler.epsilon_min);
+        elseif(mod(ss-1, particleParams.learnStepSize.adjustTime) == 0)
+            acceptPercent = mean(acceptanceCount.sample(ss-particleParams.learnStepSize.adjustTime:ss-1));
+            timeSinceLangevinAdjusted = timeSinceLangevinAdjusted + 1;
+            if(g_delta > particleParams.learnStepSize.minDelta && (acceptPercent < particleParams.learnStepSize.minAcceptPercent))
+                g_delta = max(g_delta/particleParams.learnStepSize.adjustStepDown,particleParams.learnStepSize.minDelta);
+                timeSinceLangevinAdjusted = 0;    
                 
-                fprintf('Adjusting Langevin step size down to %f\n',g_delta);
-            elseif(g_delta < params.rampSampler.epsilon_max && (acceptPercent > params.rampSampler.accept_max))
-                g_delta = min(g_delta/params.rampSampler.adjustRate,params.rampSampler.epsilon_max);
-                fprintf('Adjusting Langevin step size up to %f\n',g_delta);
+                if(~params.silent)
+                    fprintf('Adjusting Langevin step size down to %f\n',g_delta);
+                end
+            elseif(g_delta < particleParams.g_delta && (acceptPercent > particleParams.learnStepSize.maxAcceptPercent || (timeSinceLangevinAdjusted == particleParams.learnStepSize.adjustTimeAutoUp && particleParams.learnStepSize.adjustTime+ss<particleParams.learnStepSize.burnIn && g_delta < particleParams.g_delta && acceptPercent > 0.4) ))
+                g_delta = min(g_delta*particleParams.learnStepSize.adjustStepUp,particleParams.g_delta);
+                timeSinceLangevinAdjusted = 0;
+                if(~params.silent)
+                    fprintf('Adjusting Langevin step size up to %f\n',g_delta);
+                end
             end
         end
-    elseif(ss < params.MCMC.burnIn)
+    else
     	g_delta = params.rampSampler.epsilon_init;
     end
-    if(ss == params.MCMC.burnIn + 1 && ~isnan(params.rampSampler.epsilon_fixed))
+    if(ss == params.MCMC.burnIn + 1)
         g_delta = params.rampSampler.epsilon_fixed;
         fprintf('Fixing Langevin step size to %f\n',g_delta);
     end
     
-    %% MALA (Metropolis-Adjusted Langevin Algorithm) sample gamma
-    % this MALA proposal is conditioned using the fisher information of gamma
+    %% MALA sample gamma
     gamma_a = params.rampPrior.gammaAlpha;
     gamma_b = params.rampPrior.gammaBeta;
     
@@ -357,24 +363,17 @@ end
 thinRate = params.MCMC.thinRate;
 
 %get sampling stats for path
+RampSamples.burnIn = max(min(params.burnIn(2),totalSamples - 10),1);
 try
-    RampFit.lambdas.mean   = meanLatentsDB((params.MCMC.burnIn+1):thinRate:totalSamples);
+    RampSamples.lambdas.mean   = meanLatentsDB((params.MCMC.burnIn+1):thinRate:totalSamples);
 catch exc %#ok<NASGU>
-    RampFit.lambdas.mean   = [];
+    RampSamples.lambdas.mean   = [];
 end
-RampFit.auxThreshold.mean   = mean(RampSamples.auxThreshold(:,params.MCMC.burnIn+1:thinRate:end),2);
-RampFit.auxThreshold.median = median(RampSamples.auxThreshold(:,params.MCMC.burnIn+1:thinRate:end),2);
-RampFit.auxThreshold.std    = std(RampSamples.auxThreshold(:,params.MCMC.burnIn+1:thinRate:end),2);
 
 RampFit.beta.mean  = mean(RampSamples.betas(params.MCMC.burnIn+1:thinRate:end,:))';
 RampFit.w2.mean    = mean(RampSamples.w2s(params.MCMC.burnIn+1:thinRate:end))';
 RampFit.gamma.mean = mean(RampSamples.gammas(params.MCMC.burnIn+1:thinRate:end))';
 RampFit.l_0.mean   = mean(RampSamples.l_0(params.MCMC.burnIn+1:thinRate:end))';
-
-RampFit.beta.interval  = prctile(RampSamples.betas(((params.MCMC.burnIn+1):thinRate:end),:),[2.5 97.5],1);
-RampFit.w2.interval    = prctile(RampSamples.w2s((params.MCMC.burnIn+1):thinRate:end,:),[2.5 97.5],1);
-RampFit.l_0.interval   = prctile(RampSamples.l_0((params.MCMC.burnIn+1):thinRate:end),[2.5 97.5],1);
-RampFit.gamma.interval = prctile(RampSamples.gammas((bparams.MCMC.burnIn+1):thinRate:end),[2.5 97.5],1);
 
 try 
     kcFreeGPUArray(gpu_y);
@@ -385,6 +384,8 @@ try
 catch e
     fprintf('Error clearing cuda memory: %s\n',e);
 end
+
+
 
 fprintf('Ramping model sampler complete.\n');
 end

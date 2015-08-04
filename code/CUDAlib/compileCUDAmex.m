@@ -6,9 +6,12 @@ if(nargin > 0)
     sourceDir = [myCodeHome '/CUDAlib/src'];
     objDir    = [myCodeHome '/CUDAlib/obj'];
 
+    CUDAdirectory   = '/usr/local/cuda-7.0';
+    MATLABdirectory = '/usr/local/MATLAB/R2013a/';
+    
     extraArgs = '-Xcompiler -fpic';
 
-    compileCUDAlibMex = @(fName) system(['cd ' objDir '; /usr/local/cuda-7.0/bin/nvcc -c -shared -m64 --gpu-architecture sm_35 ' extraArgs ' -I' sourceDir ' -I/usr/local/cuda-7.0/samples/common/inc/  -I/usr/local/MATLAB/R2013a/extern/include ' sourceDir '/' fName '.cu' ]); %mv ' fName '.o ' objDir '/' fName '.o'
+    compileCUDAlibMex = @(fName) system(['cd ' objDir '; ' CUDAdirectory '/bin/nvcc -c -shared -m64 --gpu-architecture sm_35 ' extraArgs ' -I' sourceDir ' -I' CUDAdirectory '/samples/common/inc/  -I' MATLABdirectory 'extern/include ' sourceDir '/' fName '.cu' ]); %mv ' fName '.o ' objDir '/' fName '.o'
 
 
     if(~isdir(objDir))
@@ -34,4 +37,6 @@ else
     fName = {fName{:},'kcStepTimeSampler'};
     
     fName = {fName{:},'kcRampPathSampler'};
+    fName = {fName{:},'kcRampVarianceSampler'};
+    fName = {fName{:},'kcRampBoundHeightSampler'};
 end

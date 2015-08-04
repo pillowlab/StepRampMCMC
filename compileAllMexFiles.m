@@ -1,3 +1,5 @@
+fprintf('Make sure to set paths in code/CUDAlib/compileCUDAmex.m and code/CUDAlib/linkCUDAmex.m\n');
+
 %% adds path to some CUDA files
 addpath code/CUDAlib/
 

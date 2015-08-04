@@ -1,6 +1,7 @@
 %% sets up necessary paths
 addpath ./code/
 addpath ./code/CUDAlib/mex/
+addpath ./code/largeDataHandlers/
 
 
 %% gets a simulated stepping neuron

@@ -111,11 +111,11 @@ kcResetDevice(); %does this reset thing to make sure GPU is ready - might not be
 [RampFit, RampSamples] = fitRampingModel(timeSeries,params);
 [RampModelComp.DIC, RampModelComp.l_like,RampModelComp.DIClikelihoods ] = getRampingDIC(RampSamples,params,RampFit,timeSeries);
 
-DICs(2) = RampModelComp.DIC;
+DICs(1) = RampModelComp.DIC;
 
-save(resultsFiles.ramp,'timeSeries','params','RampModelComp','RampFit','-v7.3');
-save(samplesFiles.ramp,'RampSamples','-v7.3');
-clear RampSamples
+save(resultsFiles.step,'timeSeries','params','StepModelComp','StepFit','-v7.3');
+save(samplesFiles.step,'StepSamples','-v7.3');
+clear StepSamples
 
 
 %% ----------------------------

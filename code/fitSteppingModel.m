@@ -119,12 +119,12 @@ trIndex(end) = TT;
 gpu_trIndex = kcArrayToGPUint(int32(trIndex));
 gpu_trCoh = kcArrayToGPUint(int32(trCoh));
 
-display('Starting Stepping MCMC sampler...');
+fprintf('Starting Stepping MCMC sampler...\n');
 
 %% run the sampler
 for ss = 2:totalSamples
     if(mod(ss,250) == 0 || ss == totalSamples)
-        display(['  Stepping MCMC sample ' num2str(ss) ' / ' num2str(totalSamples)]);
+        fprintf('  Stepping MCMC sample %d / %d \n', ss, totalSamples);
     end
     %% sample the latent states (z and s)
     
@@ -158,14 +158,14 @@ for ss = 2:totalSamples
     
     if(StepSamples.spikeStats(1,1,ss) == 0 && improperPrior)
         StepSamples.alpha(1,ss) = gamrnd(improperPriorFixAlpha, improperPriorFixBeta);
-        display('Improper prior error on alpha 1! Sampling from different gamma.');
+        fprintf('Improper prior error on alpha 1! Sampling from different gamma to partially correct this.\n');
     else
         StepSamples.alpha(1,ss) = gamrnd(params.stepPrior.alpha.shape + StepSamples.spikeStats(1,2,ss), 1/(params.stepPrior.alpha.rate + StepSamples.spikeStats(1,1,ss)));
     end
     
     if(StepSamples.spikeStats(2,1,ss) == 0 && improperPrior)
         StepSamples.alpha(2,ss) = gamrnd(improperPriorFixAlpha, improperPriorFixBeta);
-        display('Improper prior error on alpha 2! Sampling from different gamma.');
+        fprintf('Improper prior error on alpha 2! Sampling from different gamma to partially correct this.\n');
     else
         StepSamples.alpha(2,ss) = gamrnd(params.stepPrior.alpha.shape + StepSamples.spikeStats(2,2,ss), 1/(params.stepPrior.alpha.rate + StepSamples.spikeStats(2,1,ss)));
     end
@@ -178,7 +178,7 @@ for ss = 2:totalSamples
     if(StepSamples.spikeStats(3,1,ss) == 0 && improperPrior)
         post_alpha3_1 = improperPriorFixAlpha;
         post_alpha3_2 = improperPriorFixBeta;
-        display('Improper prior error on alpha 3! Sampling from different gamma.');
+        fprintf('Improper prior error on alpha 3! Sampling from different gamma to partially correct this.\n');
     end
     gamMax = gamcdf(StepSamples.alpha(2,ss),post_alpha3_1,1/post_alpha3_2);
     
@@ -337,5 +337,5 @@ StepFit.r.interval     = prctile(StepSamples.r(params.MCMC.burnIn+1:params.MCMC.
 
 StepSamples.finalEpsilon = epsilon;
 
-display('Done.');
+fprintf('Stepping model sampler complete.\n');
 end

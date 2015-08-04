@@ -19,11 +19,7 @@ params.MCMC.burnIn   = 1e3; %number of samples for burn in
 params.DIC.meanLikelihoodSamples = 3000; %num samples to use to estimate p(Data| mean parameters) for rampling model
 params.DIC.likelihoodSamples     = 1000; %num samples to use to estimate p(Data| parameter_s) for rampling model - in DIC expectation
 
-%% ramping model particle filter params
 
-params.rampSampler.numParticles    = 200;%number of particles to simulate to sample ramping firing rates
-params.rampSampler.minNumParticles = 25; %minimum "effective" number of particles before resampling
-params.rampSampler.sigMult         = 1.0;%for ramping model particle filter, just keep at 1.0
 
 %% stepping model sampler params
 
@@ -32,13 +28,34 @@ params.stepSampler.maxJumpTime = 1500; %maximum allowed jump time - should be mu
 %during burn-in, can automatically adjust step size of MALA sampler on r
 params.stepSampler.learnStepSize = 1;   %to use auto-step size or not
 params.stepSampler.MALAadjust    = 100; %how often to make adjustments (in number of samples) on epsilon (the step size)
-params.stepSampler.epsilon_init  = 0.075; %inital value of epislon
+params.stepSampler.epsilon_init  = 0.075; %inital value of epsilon
 params.stepSampler.accept_min    = 0.2; %minimum acceptance fraction (if fraction goes below this, epsilon is adjusted down)
 params.stepSampler.accept_max    = 0.8; %maximum acceptance fraction (if fraction goes above this, epsilon is adjusted up)
 params.stepSampler.adjustRate    = 1.25; %epsilon multiplied by this rate to go up, and divided to go down
 params.stepSampler.epsilon_min   = 0.02; %minimum allowed value of epsilon
 params.stepSampler.epsilon_max   = 0.5;  %maximum allowed value of epsilon
 %if params.stepSampler.learnStepSize is false, epsilon is set to epsilon_init throughout sampling
+
+
+%% ramping model particle filter params
+
+params.rampSampler.numParticles    = 200;%number of particles to simulate to sample ramping firing rates
+params.rampSampler.minNumParticles = 25; %minimum "effective" number of particles before resampling
+params.rampSampler.sigMult         = 1.0;%for ramping model particle filter, just keep at 1.0
+
+%during burn-in, automatically adjusts step size of MALA sampler on gamma (similar to r above)
+params.rampSampler.learnStepSize = 1;   %to use auto-step size or not
+params.rampSampler.epsilon_init  = 0.005; %inital value of epislon
+params.rampSampler.MALAadjust    = 100; %how often to make adjustments (in number of samples) on epsilon (the step size)
+params.rampSampler.adjustRate    = 1.5; %epsilon multiplied by this rate to go up, and divided to go down
+params.rampSampler.epsilon_min   = 0.02; %minimum allowed value of epsilon
+params.rampSampler.epsilon_max   = 1.0;  %maximum allowed value of epsilon
+params.rampSampler.accept_min    = 0.2; %minimum acceptance fraction (if fraction goes below this, epsilon is adjusted down)
+params.rampSampler.accept_max    = 0.8; %maximum acceptance fraction (if fraction goes above this, epsilon is adjusted up)
+
+%after burn in, sets epsilon to this fixed value if not nan
+params.rampSampler.epsilon_fixed = 1.0; 
+
 
 %% ramping model prior
 

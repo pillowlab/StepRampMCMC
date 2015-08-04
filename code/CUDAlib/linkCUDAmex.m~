@@ -7,9 +7,9 @@ if(nargin > 0)
     mexDir2     = [myCodeHome2 '/CUDAlib/mex'];
 
     CUDAdirectory   = '/usr/local/cuda-7.0';
-    %MATLABdirectory = '/usr/local/MATLAB/R2013a/';
+    MATLABdirectory = '/usr/local/MATLAB/R2013a/';
     
-    linkCUDAlibMex    = @(fName) mex('-cxx','-o', [mexDir2 '/' fName],'-v','-L', [CUDAdirectory '/lib64/'], '-l','cuda', '-l', 'cudart', '-l','cusparse', '-l','cublas', '-l','curand', [objDir2 '/' fName '.o']);
+    linkCUDAlibMex    = @(fName) mex('-cxx','-o', [mexDir2 '/' fName],'-v','-L', CUDAdirectory '/lib64/', '-l','cuda', '-l', 'cudart', '-l','cusparse', '-l','cublas', '-l','curand', [objDir2 '/' fName '.o']);
 
 
     if(~isdir(mexDir2))
