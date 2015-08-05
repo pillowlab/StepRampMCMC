@@ -33,6 +33,7 @@ __global__ void kcVarStatsTrial(KC_FP_TYPE *w1, KC_FP_TYPE *w2, int * crossingTi
         w2[idx] /= 2.0;
     }
 }
+
 //this function is mostly around to avoid pulling everything back to the host
 //there are more efficient techniques to compute this, but this bit is so fast
 //compared to the particle filter that optimization isn't necessary

@@ -38,7 +38,9 @@ __device__ KC_FP_TYPE log_p_y( KC_FP_TYPE y,  KC_FP_TYPE rate,  KC_FP_TYPE dt) {
  *  inputs
  *    y = spike counts
  *    trialIndex = index for y ( first spike count for trial i is y[trialIndex[i]] and the last spike count is y[trialIndex[i+1]-1]
+ *                 y is indexed at 0. This array includes final value that should be length of y)
  *    trialCoh   = coherence level for each trial (coherence controls prior jump time distribution and jump to state probability)
+ *                 coherence labels/indices begin at 0 instead of 1 to be consistent with C, unlike MATLAB
  *    NT         = number of trials
  *    alpha      = (3,1) array, spike rates
  *    phi        = (numCoherences,1) jump probabilities (p(s=3) = phi, p(s=2) = 1-phi), trial coherence dependent

@@ -69,7 +69,7 @@ __device__ KC_FP_TYPE dh2_h(KC_FP_TYPE lambda, KC_FP_TYPE gamma, KC_FP_TYPE dt) 
 
 
 
-// cimputes log p(single trial | gamma, fixed lambdas)
+// computes log p(single trial | gamma, fixed lambdas)
 __global__ void kcBoundaryLikelihoodTrial(KC_FP_TYPE * y, KC_FP_TYPE * lambdas, int * crossingTimes, int * mBlkIdx, KC_FP_TYPE g, KC_FP_TYPE dt, int NT, KC_FP_TYPE * llSum, KC_FP_TYPE * trialSum, KC_FP_TYPE * trialSumRiemann) {
     int idx = blockIdx.x*blockDim.x+threadIdx.x;
     if(idx < NT) {
@@ -97,29 +97,45 @@ __global__ void kcBoundaryLikelihoodTrial(KC_FP_TYPE * y, KC_FP_TYPE * lambdas, 
     }
 }
         
+//Computes the the log probability of a set of spike trains under the ramping model given a fixed set of latent variable
+// as a function of \gamma (the bound height) along with first/second derivates w.r.t. \gamma
+//args
+//  0  = lambda (latent variables, on GPU. Same size as y)
+//  1  = auxillary variable - threshold crossing time (latent variable boundary crossing time, on GPU. vector length number of trials: NT)
+//  2  = y (observations, on GPU)
+//  3  = trIdx (array that accesses the beta value used at each timepoint, y being indexed at 0. Includes final value that should be length of y)
+//  4  = g (absorbing boundary effective height)
+//  5  = dt (bin size in seconds)
+//  6  = priorMat (contains log prior probability of gamma)
+//
+//outputs (left-hand side)
+//  0  = log p(y|lambdas,gamma)
+//  1  = d/dg log p(y|lambdas,gamma)
+//  2  = d^2/d^2g log p(y|lambdas,gamma)
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     cudaError_t ce;
 
-
-
+    //loads up trial information
     unsigned int TT = kcGetArrayNumEl(prhs[0]);
-    KC_FP_TYPE * lambda = kcGetArrayData(prhs[0]);
     int * crossingTimes = kcGetArrayDataInt(prhs[1]);
     KC_FP_TYPE * y      = kcGetArrayData(prhs[2],TT);
 
     int * trIdx = kcGetArrayDataInt(prhs[3]);
     unsigned int NT = kcGetArrayNumEl(prhs[3])-1;
-    
-
-    KC_FP_TYPE  g      = mxGetScalar(prhs[4]);
     KC_FP_TYPE  dt     = mxGetScalar(prhs[5]);
+    
+    //loads gamma and latent variables
+    KC_FP_TYPE  g      = mxGetScalar(prhs[4]);
+    KC_FP_TYPE * lambda = kcGetArrayData(prhs[0]);
 
+    //loads log prior probability of the gamma value
     if(mxGetClassID(prhs[6]) != KC_FP_TYPE_MATLAB) {
         mexErrMsgTxt("Prior matrix input wrong floating point type (kcLangevinStep)!");
     }
     KC_FP_TYPE * priorMat =  (KC_FP_TYPE *)mxGetPr(prhs[6]);
 
+    //sets up space for computations on GPU
     KC_FP_TYPE * der_log_p_y;
     checkCudaErrors(cudaMalloc((void**)&der_log_p_y,sizeof(KC_FP_TYPE)*(NT)));    
     KC_FP_TYPE * der_log_p_y_sum;
@@ -130,13 +146,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     KC_FP_TYPE * log_p_y_sum;
     checkCudaErrors(cudaMalloc((void**)&log_p_y_sum,sizeof(KC_FP_TYPE)*1));    
 
-    
     KC_FP_TYPE * G_log_p_y1;
     checkCudaErrors(cudaMalloc((void**)&G_log_p_y1,sizeof(KC_FP_TYPE)*(NT)));    
     KC_FP_TYPE * G_log_p_y_sum;
     checkCudaErrors(cudaMalloc((void**)&G_log_p_y_sum,sizeof(KC_FP_TYPE)*(1)*(1)));    
     checkCudaErrors(cudaMemcpy(G_log_p_y_sum,priorMat,sizeof(KC_FP_TYPE)*(1)*(1),cudaMemcpyHostToDevice));    
 
+    //sets up CUDA variables
     int blockSize = 2;
     int numBlocks = (int)NT/(int)blockSize + ((NT%blockSize==0)?0:1);
 
@@ -150,7 +166,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     kcSumLangevinVars <<< nBlocksC,blockSizeC >>> (der_log_p_y, der_log_p_y_sum, G_log_p_y1, G_log_p_y_sum, log_p_y, log_p_y_sum,  trIdx, NT);
     checkCudaErrors(cudaDeviceSynchronize());
 
-
+    
+    //pushes answers back to MATLAB
     if(nlhs > 0) {
         plhs[0] = mxCreateNumericMatrix(1,1,KC_FP_TYPE_MATLAB,mxREAL);
         checkCudaErrors(cudaMemcpy((KC_FP_TYPE*)mxGetPr(plhs[0]),log_p_y_sum,sizeof(KC_FP_TYPE)*1,cudaMemcpyDeviceToHost));
@@ -163,6 +180,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
         plhs[2] = mxCreateNumericMatrix(1,1,KC_FP_TYPE_MATLAB,mxREAL);
         checkCudaErrors(cudaMemcpy((KC_FP_TYPE*)mxGetPr(plhs[2]),G_log_p_y_sum,sizeof(KC_FP_TYPE)*(1)*(1),cudaMemcpyDeviceToHost));
     }
+    
+    //clears up GPU variables
     checkCudaErrors(cudaDeviceSynchronize());
     checkCudaErrors(cudaFree(log_p_y));
     checkCudaErrors(cudaFree(log_p_y_sum));

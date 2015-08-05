@@ -342,23 +342,24 @@ __global__ void kcAssembleSamplingStatistics(KC_FP_TYPE * sigMat, KC_FP_TYPE * m
 }
 
 
+//Samples a single set of latent paths from the ramping model for a set of trials given fixed parameters 
 //args
-//  0  = new lambda
-//  1  = new auxiliary variable for threshold crossing
+//  0  = new lambda (output, should be pre-allocated on GPU, same size as y)
+//  1  = new auxiliary variable for threshold crossing (output, should be pre-allocated on GPU, vector of length number of trials)
 //  2  = y (observations)
-//  3  = trIdx (array of trial start times)
-//  4  = betaIdxVector (array that accesses the beta value used at each timepoint)
+//  3  = trIdx (array that accesses the beta value used at each timepoint, y being indexed at 0. Includes final value that should be length of y)
+//  4  = betaIdxVector (array that gives coherence used at each bins of y. i.e., accesses the beta value used at each timepoint. values begin at 0 instead of 1 to be consistent with C, unlike MATLAB)
 //  5  = betas (the beta values)
-//  6  = w (variance of AR1)
+//  6  = w (variance of diffusion process)
 //  7  = l_0 (starting lambda value)
-//  8  = g (absorbing boundary)
-//  9  = dt (timestep size)
+//  8  = g (absorbing boundary effective height)
+//  9  = dt (bin/timestep size)
 //  10 = numParticles
 //  11 = minEffParticles (how many effective particles per trial to keep around)
 //  12 = sigMult (used for particle proposals, proposal variance is sigMult*w)
 //  13 = maxTrialLength
-//  14 = beta/l_0 sampling vec param c
-//  15 = beta/l_0 sampling vec param p
+//  14 = beta/l_0 sampling vec param c (uses this as output for sampling betas, l_0)
+//  15 = beta/l_0 sampling vec param p uses this as output for sampling betas, l_0)
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     

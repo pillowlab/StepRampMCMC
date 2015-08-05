@@ -1,42 +1,18 @@
 function [DIC, l_like,DIClikelihoods ] = getRampingDIC(StepSamples,params,modelFit,timeSeries)
 
-thinRate = params.thinRate(1);
 
-burnInTime = params.burnIn(2);
-
-
-if(nargin < 4)
-    lambda_sets = 200;
-else
-    lambda_sets = lambdaSetsToSim;
-end
+betas  = modelFit.beta.mean';
+w2s    = modelFit.w2.mean';
+l_0    = modelFit.l_0.mean;
+gamma  = modelFit.gamma.mean;
 
 
-
-particleParams.h    = @(X) log(1+exp(X))*params.delta_t;
-particleParams.hinv = @(X) log(exp(X/params.delta_t)-1);
-
-
-
-
-betas  = samples.meanBeta';
-w2s    = samples.meanW2';
-l_0    = samples.meanL0;
-gamma  = samples.meanGamma;
-
-
+%% --SETUP THE GPU VARS---------------
 NT  = size(timeSeries.trialIndex,1);
-NT2 = size(timeSeriesTest.trialIndex,1);
 TT  = size(timeSeries.y,1);
-TT2 = size(timeSeriesTest.y,1);
-
-%--SETUP THE GPU VARS---------------
-
 trIndex = zeros(NT+1,1);
-trIndex_test = zeros(NT2+1,1);
 
 betaVector = zeros(TT+1,1);
-betaVector_test = zeros(TT2+1,1);
 maxTrLength = 0;
 for tr = 1:NT
     T1 = timeSeries.trialIndex(tr,1);
@@ -48,28 +24,10 @@ for tr = 1:NT
     
     betaVector(T1:T2) = timeSeries.trB(tr)-1; 
 end
-for tr = 1:NT2
-    T1 = timeSeriesTest.trialIndex(tr,1);
-    T2 = timeSeriesTest.trialIndex(tr,2);
-    T = T2 - T1 + 1;
-    
-    trIndex_test(tr+1) = trIndex_test(tr) + T;
-    
-    betaVector_test(T1:T2) = timeSeriesTest.trB(tr)-1; 
-end
-
-if(max(timeSeriesTest.trB) > max(timeSeries.trB))
-    display('Incompatible number of parameters in validation set.');
-end
-
 
 gpu_y                = kcArrayToGPU( timeSeries.y);
-gpu_y_test           = kcArrayToGPU( timeSeriesTest.y);
-gpu_trIndex          = kcArrayToGPUint(int32(trIndex));   
-gpu_trIndex_test     = kcArrayToGPUint(int32(trIndex_test));      
+gpu_trIndex          = kcArrayToGPUint(int32(trIndex));       
 gpu_trBetaIndex      = kcArrayToGPUint(int32(betaVector));  
-gpu_trBetaIndex_test = kcArrayToGPUint(int32(betaVector_test)); 
-%gpu_lambdas          = kcArrayToGPU(lambdas);
 
 fprintf('Diffusion-to-Bound Model: estimating p(y|theta_bar) ( with %d MC samples)... ', lambda_sets);
 [ll, ll_pred] = kcSimGaussianBound(gpu_y, gpu_trIndex, gpu_trBetaIndex, gpu_y_test, gpu_trIndex_test, gpu_trBetaIndex_test, betas, w2s, l_0, gamma, params.delta_t, lambda_sets);
@@ -105,17 +63,19 @@ prior = prior + params.gamma_1*log(params.gamma_2) - gammaln(params.gamma_1) + (
     
 
 %% DIC estimates
-log_p = zeros(samples.numSamples-burnInTime,1);
-for s = burnInTime+1:thinRate:samples.numSamples
-    [log_p(s-burnInTime), log_p_pred(s-burnInTime)] = kcSimGaussianBound(gpu_y, gpu_trIndex, gpu_trBetaIndex, gpu_y_test, gpu_trIndex_test, gpu_trBetaIndex_test, samples.betas(s,:), samples.w2s(s,1), samples.l_0(s,:), samples.gammas(s), params.delta_t, DIClambdaSets);
-    if(isnan(log_p_pred(s-burnInTime)) || isinf(log_p_pred(s-burnInTime))) 
-        display(['bayesFactorsGaussianBound log_p_pred = ' num2str(log_p_pred(s-burnInTime)) ' on sample ' num2str(s) ' . Throwing out.']);
+thinRate = params.MCMC.thinRate;
+burnIn = params.MCMC.burnIn;
+log_p = zeros(samples.numSamples-burnIn,1);
+for s = burnIn+1:thinRate:samples.numSamples
+    log_p(s-burnIn) = kcRampLikelihood(gpu_y, gpu_trIndex, gpu_trBetaIndex, gpu_y_test, gpu_trIndex_test, gpu_trBetaIndex_test, samples.betas(s,:), samples.w2s(s,1), samples.l_0(s,:), samples.gammas(s), params.delta_t, DIClambdaSets);
+    if(isnan(log_p_pred(s-burnIn)) || isinf(log_p_pred(s-burnIn))) 
+        display(['bayesFactorsGaussianBound log_p_pred = ' num2str(log_p_pred(s-burnIn)) ' on sample ' num2str(s) ' . Throwing out.']);
     end
-    if(isnan(log_p(s-burnInTime)) || isinf(log_p(s-burnInTime))) 
-        display(['bayesFactorsGaussianBound log_p = ' num2str(log_p(s-burnInTime)) ' on sample ' num2str(s) ' . Throwing out.']);
+    if(isnan(log_p(s-burnIn)) || isinf(log_p(s-burnIn))) 
+        display(['bayesFactorsGaussianBound log_p = ' num2str(log_p(s-burnIn)) ' on sample ' num2str(s) ' . Throwing out.']);
     end
     if(mod(s-1,100) == 0 || s==samples.numSamples) 
-        display(['Gaussian Bound DIC sample ' num2str(s-burnInTime) '/' num2str(samples.numSamples-burnInTime)]);
+        display(['Gaussian Bound DIC sample ' num2str(s-burnIn) '/' num2str(samples.numSamples-burnIn)]);
     end
     
     if(mod((s-1)/thinRate,params.GPUresetTime) == 0)
@@ -147,11 +107,11 @@ for s = burnInTime+1:thinRate:samples.numSamples
 
 
     % get priors
-    priorProbs(s-burnInTime) = priorProbs(s-burnInTime) + sum(- 1/2*log(2*pi*params.beta_sigma.^2) - 1./(2*params.beta_sigma.^2) .* (samples.betas(s,:) - params.beta_mu).^2  );
+    priorProbs(s-burnIn) = priorProbs(s-burnIn) + sum(- 1/2*log(2*pi*params.beta_sigma.^2) - 1./(2*params.beta_sigma.^2) .* (samples.betas(s,:) - params.beta_mu).^2  );
 
-    priorProbs(s-burnInTime) = priorProbs(s-burnInTime) + sum(- 1/2*log(2*pi*params.l0_sigma_bound.^2) - 1./(2*params.l0_sigma_bound.^2) .* (samples.l_0(s,:) - params.l0_mu_bound).^2  );
-    priorProbs(s-burnInTime) = priorProbs(s-burnInTime) + sum(params.w2_p1_bound.*log(params.w2_p2_bound) - gammaln(params.w2_p1_bound) + (-params.w2_p1_bound-1).*log(samples.w2s(s,1)) - params.w2_p2_bound./samples.w2s(s,1)  );
-    priorProbs(s-burnInTime) = priorProbs(s-burnInTime) + params.gamma_1*log(params.gamma_2) - gammaln(params.gamma_1) + (params.gamma_1-1)*log(samples.gammas(s))   - params.gamma_2*samples.gammas(s);
+    priorProbs(s-burnIn) = priorProbs(s-burnIn) + sum(- 1/2*log(2*pi*params.l0_sigma_bound.^2) - 1./(2*params.l0_sigma_bound.^2) .* (samples.l_0(s,:) - params.l0_mu_bound).^2  );
+    priorProbs(s-burnIn) = priorProbs(s-burnIn) + sum(params.w2_p1_bound.*log(params.w2_p2_bound) - gammaln(params.w2_p1_bound) + (-params.w2_p1_bound-1).*log(samples.w2s(s,1)) - params.w2_p2_bound./samples.w2s(s,1)  );
+    priorProbs(s-burnIn) = priorProbs(s-burnIn) + params.gamma_1*log(params.gamma_2) - gammaln(params.gamma_1) + (params.gamma_1-1)*log(samples.gammas(s))   - params.gamma_2*samples.gammas(s);
 
 end
 
@@ -174,10 +134,10 @@ likelihoods(isnan(likelihoods)) = min(log_p);
 ss2 = find(likelihoods == max(likelihoods),1);
 ss = (ss2-1)*thinRate + 1;
 
-sampleModelFit.meanBeta   = samples.betas(ss+burnInTime,:);
-sampleModelFit.meanL0     = samples.l_0(ss+burnInTime);
-sampleModelFit.meanW2     = samples.w2s(ss+burnInTime);
-sampleModelFit.meanGamma  = samples.gammas(ss+burnInTime);
+sampleModelFit.meanBeta   = samples.betas(ss+burnIn,:);
+sampleModelFit.meanL0     = samples.l_0(ss+burnIn);
+sampleModelFit.meanW2     = samples.w2s(ss+burnIn);
+sampleModelFit.meanGamma  = samples.gammas(ss+burnIn);
 MAP_ML_stuff.ML_est.vals = sampleModelFit; 
 MAP_ML_stuff.ML_est.ll   = likelihoods(ss2);
 MAP_ML_stuff.ML_est.prior  = priorProbs(ss2);
@@ -186,10 +146,10 @@ MAP_ML_stuff.ML_est.ss   = ss;
 ss2 = find(postProbs == max(postProbs),1);
 ss = (ss2-1)*thinRate + 1;
 
-sampleModelFit.meanBeta   = samples.betas(ss+burnInTime,:);
-sampleModelFit.meanL0     = samples.l_0(ss+burnInTime);
-sampleModelFit.meanW2     = samples.w2s(ss+burnInTime);
-sampleModelFit.meanGamma  = samples.gammas(ss+burnInTime);
+sampleModelFit.meanBeta   = samples.betas(ss+burnIn,:);
+sampleModelFit.meanL0     = samples.l_0(ss+burnIn);
+sampleModelFit.meanW2     = samples.w2s(ss+burnIn);
+sampleModelFit.meanGamma  = samples.gammas(ss+burnIn);
 MAP_ML_stuff.MAP_est.ll   = likelihoods(ss2);
 MAP_ML_stuff.MAP_est.prior  = priorProbs(ss2);
 MAP_ML_stuff.MAP_est.vals = sampleModelFit; 
