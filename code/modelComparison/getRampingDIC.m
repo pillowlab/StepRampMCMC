@@ -48,7 +48,7 @@ burnIn = params.MCMC.burnIn;
 DIClikelihoods = zeros(params.MCMC.nSamples,1);
 for ss = 1:thinRate:params.MCMC.nSamples
     if(ss == 1 || mod(ss-1,50) == 0 || ss == params.MCMC.nSamples)
-        fprintf('Ramping model DIC calculations %d / %d\n',ss,params.MCMC.nSamples);
+        fprintf('  Ramping model DIC calculations %d / %d\n',ss,params.MCMC.nSamples);
     end
     
     DIClikelihoods(ss) = kcRampLikelihood(gpu_y, gpu_trIndex, gpu_trBetaIndex, RampSamples.betas(ss+burnIn,:), RampSamples.w2s(ss+burnIn,1), RampSamples.l_0(ss+burnIn,:), RampSamples.gammas(ss+burnIn), params.delta_t, params.DIC.likelihoodSamples);
@@ -78,3 +78,4 @@ kcFreeGPUArray(gpu_trBetaIndex);
 
 
 
+fprintf('Ramping model DIC computation complete.\n');

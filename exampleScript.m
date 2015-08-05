@@ -17,8 +17,8 @@
 addAllPaths;
 
 %% gets a simulated stepping neuron
-% timeSeries = simulateRampingModel();
-timeSeries = simulateSteppingModel();
+timeSeries = simulateRampingModel();
+% timeSeries = simulateSteppingModel();
 
 %% gets parameters
 params = setupMCMCParams();

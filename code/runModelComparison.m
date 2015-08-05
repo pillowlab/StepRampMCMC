@@ -27,10 +27,7 @@ function [DICs, StepFit, RampFit] = runModelComparison( timeSeries, params, resu
 
 DICs = [nan nan];
 
-
-%% setup parameters
-
-%sets up a structure that gives trial start and end time 
+%% sets up a structure that gives trial start and end time
 NT = length(timeSeries.trialStart);
 TT = length(timeSeries.y);
 timeSeries.trialIndex = zeros(NT,2);
@@ -117,7 +114,7 @@ end
 if(~isfield(timeSeries,'trueParams'))
     fprintf('Sampling complete. DIC difference = %4.1f (favors %s).\n',DICdiff,model);
 else
-    fprintf('Sampling complete. DIC difference = %4.1f (favors %s, true model %d).\n',DICdiff,model,timeSeries.trueParams.model);
+    fprintf('Sampling complete. DIC difference = %4.1f (favors %s, true model %s).\n',DICdiff,model,timeSeries.trueParams.model);
 end
 
 kcResetDevice(); %does this reset thing to make sure all GPU stuff sent off by the samplers is finished

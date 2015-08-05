@@ -3,16 +3,17 @@ function params = setupMCMCParams()
 %% time params
 
 params.delta_t         = 10e-3; %bin size - here it is in seconds
-params.timeAfterDotsOn = 200e-3; %analysis start time after stimulus on - here it's only used for some plots and does not need to be accurate
+params.timeAfterDotsOn = 200e-3; %analysis start time after stimulus on (here it's only used for some plots and does not need to be accurate)
 
 
 %% MCMC runs
 
 params.MCMC.nSamples = 1000; %number of MCMC samples to get (post burn-in)
+params.MCMC.burnIn   = 1000; %number of samples for burn in
+
 params.MCMC.thinRate = 5;    %thin chain - take every X samples
                              %effective number of samples is then params.MCMC.nSamples/params.MCMC.thinRate
                              
-params.MCMC.burnIn   = 1000; %number of samples for burn in
 
 %% model comparison
 
