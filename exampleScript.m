@@ -17,10 +17,14 @@
 addAllPaths;
 
 %% gets a simulated stepping neuron
+% timeSeries = simulateRampingModel();
 timeSeries = simulateSteppingModel();
 
 %% gets parameters
 params = setupMCMCParams();
+
+%% sets up GPU
+kcSetDevice(0); %in case you have more than 1 GPU, this sets which device to use
 
 %% set files for output
 resultsFiles.ramp = './Results/RampFit_Sim.mat';

@@ -34,7 +34,7 @@ DIClikelihoods = zeros(params.MCMC.nSamples,1);
 
 for ss = 1:params.MCMC.thinRate:params.MCMC.nSamples
     if(ss == 1 || mod(ss-1,250) == 0 || ss == params.MCMC.nSamples)
-        display(['Stepping model DIC calculations ' num2str(ss) ' / ' num2str(params.MCMC.nSamples)]);
+        fprintf('Stepping model DIC calculations %d / %d\n',ss,params.MCMC.nSamples);
     end
     sampleModelFit.alpha.mean = StepSamples.alpha(:,ss+params.MCMC.burnIn);
     sampleModelFit.r.mean     = StepSamples.r(ss+params.MCMC.burnIn);
@@ -48,7 +48,7 @@ DIClikelihoods = DIClikelihoods(1:params.MCMC.thinRate:end);
 
 DICtermsToDrop = sum(isnan(DIClikelihoods) | isinf(DIClikelihoods));
 if(DICtermsToDrop > 0)
-    display(['Dropping ' num2str(DICtermsToDrop) ' terms from DIC calculation! Potential numerical errors!']);
+    fprintf('Dropping %d terms from DIC calculation! Potential numerical errors!\n',DICtermsToDrop);
 end
 
 DIClikelihoods = DIClikelihoods(~isnan(DIClikelihoods) & ~isinf(DIClikelihoods));

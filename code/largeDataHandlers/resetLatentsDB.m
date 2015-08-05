@@ -6,6 +6,13 @@ function [] = resetLatentsDB(rowLength,rowsToInitialize)
 
 global DataRowLength DataRowsPerBlock DataBlockNumber DataBlock DataChanged DataValidRows DataFolder;
 
+if(isempty(DataFolder))
+    DataFolder = './temp/';
+end
+
+if(~exist(DataFolder,'file'))
+    mkdir(DataFolder);
+end
 
 fileList = dir(DataFolder);
 

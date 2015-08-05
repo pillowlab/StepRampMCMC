@@ -34,9 +34,26 @@ __global__ void kcVarStatsTrial(KC_FP_TYPE *w1, KC_FP_TYPE *w2, int * crossingTi
     }
 }
 
-//this function is mostly around to avoid pulling everything back to the host
+//Function is used to calculate posterior parameters to Gibbs sample the diffusion 
+//variance (\omega^2) in the ramping model given fixed latents (\lambda), \beta, and l_0.
+//This function is mostly around to avoid pulling everything back to the host
 //there are more efficient techniques to compute this, but this bit is so fast
-//compared to the particle filter that optimization isn't necessary
+//compared to the particle filter that optimization isn't necessary.
+//
+//args
+//  0  = lambda (latent variables, on GPU. Same size as y)
+//  1  = auxillary variable - threshold crossing time (latent variable boundary crossing time, on GPU. vector length number of trials: NT)
+//  2  = trIdx (array that accesses the beta value used at each timepoint, y being indexed at 0. Includes final value that should be length of y)
+//  3  = betaIdxVector (array that gives coherence used at each bins of y. i.e., accesses the beta value used at each timepoint. values begin at 0 instead of 1 to be consistent with C, unlike MATLAB)
+//  4  = betas (the beta values)
+//  5  = l_0 (initial diffusion value)
+//
+//outputs (left-hand side) Posterior parameter contribution to the inverse-gamma over \omega^2 for each trial
+//  0  = posterior shape 
+//  1  = posterior scale 
+//
+//   total posterior shape (usually called alpha in the PDF) is the sum of output 0 plus prior scale param
+//   total posterior scale (usually called beta  in the PDF) is the sum of output 1 plus prior shape param
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
 

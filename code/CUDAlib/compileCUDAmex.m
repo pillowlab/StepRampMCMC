@@ -20,8 +20,10 @@ if(nargin > 0)
     display(' everything is fine. There is something in a CUDA lib that the compiler isn''t happy about, but it will run anyway');
 
 else
+    %if no argument, just outputs the list of CUDA files used in the project
     fName = {};
     fName = {fName{:}, 'kcResetDevice'}; %#ok<*CCAT>
+    fName = {fName{:}, 'kcSetDevice'}; 
 
     fName = {fName{:},'kcArrayGetColumn'};
     fName = {fName{:},'kcArrayGetColumnInt'};
@@ -36,4 +38,5 @@ else
     fName = {fName{:},'kcRampPathSampler'};
     fName = {fName{:},'kcRampVarianceSampler'};
     fName = {fName{:},'kcRampBoundHeightSampler'};
+    fName = {fName{:},'kcRampLikelihood'};
 end

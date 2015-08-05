@@ -53,7 +53,7 @@ __global__ void kcSumGBlogpTr(const KC_FP_TYPE * log_p, KC_FP_TYPE * log_p_tr, c
         for(int ii = 0; ii < nSims && isnan(log_p_tr[idx]);ii++) {
 
             trSum = 1 ;
-            log_x = log_p[ii*NTfull+idx];
+            log_x = log_p[ii*NT+idx];
             for(int kk = 0; kk < ii; kk++) {
                 trSum += KC_EXP(log_p[kk*NT+idx] - log_x);
             }
@@ -83,7 +83,7 @@ __global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int
         log_p[currIdx] = lh(y[T1],xx[T1],g,dt);
         for(int ii = T1+1; ii < trIdx[trNum+1];ii++) {
             //progates particle forward in time
-            xx[ii] = (xx[TS+ii-1] >= 1.0)?1.0:KC_MIN(xx[ii] + xx[ii-1]+b[betaIdx[ii]],1.0);
+            xx[ii] = (xx[ii-1] >= 1.0)?1.0:KC_MIN(xx[ii] + xx[ii-1]+b[betaIdx[ii]],1.0);
             //log likelihood of single observation (bin) y[ii] given diffusion path is at x[ii]
             log_p[currIdx] += lh(y[ii],xx[ii],g,dt);
         }

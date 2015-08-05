@@ -15,7 +15,7 @@ NC = max(timeSeries.trCoh);
 
 
 %% max firing rate (bound) initialization ------------------------------
-%firingRateFunc   = @(X) log(1+exp(X))*params.delta_t;
+firingRateFunc    = @(X) log(1+exp(X))*params.delta_t;
 firingRateFuncInv = @(X) log(exp(X/params.delta_t)-1);
 timeIndices = timeSeries.trialIndex(: ,1);
 timeIndices = [timeIndices;timeIndices+1;timeIndices+2]; 
@@ -47,7 +47,7 @@ acceptanceCount.sample = zeros(totalSamples,1);
 
 %special functions that save temp files to keep latent variables from taking over too much RAM
 resetLatentsDB(length(timeSeries.y), totalSamples);
-saveLatentsDB(RampingFit.lambdas,1);
+%saveLatentsDB(RampingFit.lambdas,1);
 
 %% initial values
 RampSamples.betas(1,:) = 0;
@@ -118,7 +118,7 @@ gpu_trBetaIndex  = kcArrayToGPUint(int32(betaVector));
 fprintf('Starting Ramping MCMC sampler...\n');
 
 for ss = 2:totalSamples
-    if(mod(ss,250) == 0 || ss == totalSamples)
+    if(mod(ss,50) == 0 || ss == totalSamples)
         fprintf('  Ramping MCMC sample %d / %d \n', ss, totalSamples);
     end
     
@@ -187,7 +187,7 @@ for ss = 2:totalSamples
     %% Step size setup for MALA on parameters
     if(params.rampSampler.learnStepSize && ss < params.MCMC.burnIn)
         if(ss <= 2)
-            g_delta = min(particleParams.learnStepSize.start);
+            g_delta = params.rampSampler.epsilon_init;
             fprintf('Starting Langevin step size at %f\n',g_delta);
         elseif(mod(ss-1, params.rampSampler.MALAadjust) == 0)
             acceptPercent = mean(acceptanceCount.sample(ss-params.rampSampler.MALAadjust:ss-1));
@@ -196,7 +196,7 @@ for ss = 2:totalSamples
                 
                 fprintf('Adjusting Langevin step size down to %f\n',g_delta);
             elseif(g_delta < params.rampSampler.epsilon_max && (acceptPercent > params.rampSampler.accept_max))
-                g_delta = min(g_delta/params.rampSampler.adjustRate,params.rampSampler.epsilon_max);
+                g_delta = min(g_delta*params.rampSampler.adjustRate,params.rampSampler.epsilon_max);
                 fprintf('Adjusting Langevin step size up to %f\n',g_delta);
             end
         end
@@ -214,15 +214,15 @@ for ss = 2:totalSamples
     gamma_b = params.rampPrior.gammaBeta;
     
     G_prior = -(gamma_a-1)/RampSamples.gammas(ss-1)^2;
-    [log_p_lambda, der_log_p_y, G_log_p_y] = kcLangevinStepAux(gpu_lambdaN,gpu_auxThresholdN,gpu_y,gpu_trIndex,RampSamples.gammas(ss-1),params.delta_t,G_prior);
+    [log_p_lambda, der_log_p_y, G_log_p_y] = kcRampBoundHeightSampler(gpu_lambdaN,gpu_auxThresholdN,gpu_y,gpu_trIndex,RampSamples.gammas(ss-1),params.delta_t,G_prior);
     p_mu = RampSamples.gammas(ss-1) + 1/2*g_delta^2*(G_log_p_y\der_log_p_y);
 
     p_sig = (g_delta)^2/G_log_p_y;
     gamma_star = p_mu + sqrt(p_sig)*randn;
     log_q_star = -1/2*log(2*pi*p_sig) - 1/(2*p_sig)*(gamma_star - p_mu)^2;
     
-    G_prior_star = -(params.gamma_1-1)/gamma_star^2;
-    [log_p_lambda_star, der_log_p_y_star, G_log_p_y_star] = kcLangevinStepAux(gpu_lambdaN,gpu_auxThresholdN,gpu_y,gpu_trIndex,gamma_star,params.delta_t,G_prior_star);
+    G_prior_star = -(gamma_a-1)/gamma_star^2;
+    [log_p_lambda_star, der_log_p_y_star, G_log_p_y_star] = kcRampBoundHeightSampler(gpu_lambdaN,gpu_auxThresholdN,gpu_y,gpu_trIndex,gamma_star,params.delta_t,G_prior_star);
     p_mu_star  = gamma_star + 1/2*g_delta^2*(G_log_p_y_star\der_log_p_y_star);
     p_sig_star = (g_delta)^2/G_log_p_y_star;
     log_q = -1/2*log(2*pi*p_sig_star) - 1/(2*p_sig_star)*(RampSamples.gammas(ss-1) - p_mu_star)^2;
@@ -257,8 +257,8 @@ for ss = 2:totalSamples
         clf
 
         startMean = max(1,ss-250);
-        if(ss > params.burnIn(2) + 100)
-            startMean = params.burnIn(2)+1;
+        if(ss > params.MCMC.burnIn + 100)
+            startMean = params.MCMC.burnIn+1;
         end
         
         subplot(4,1,1)
@@ -314,8 +314,8 @@ for ss = 2:totalSamples
         range = [];
         allTrs = [];
         for ii = 1:NC 
-            nTrialsAtCoh = sum(timeSeries.trB == ii);
-            trs = find(timeSeries.trB == ii,1);
+            nTrialsAtCoh = sum(timeSeries.trCoh == ii);
+            trs = find(timeSeries.trCoh == ii,1);
             range = [range timeSeries.trialIndex(trs,1):timeSeries.trialIndex(trs+min(3,nTrialsAtCoh)-1,2) ]; %#ok<AGROW>
             allTrs = [allTrs trs:(trs+min(3,nTrialsAtCoh)-1)]; %#ok<AGROW>
         end
@@ -323,11 +323,6 @@ for ss = 2:totalSamples
         
         trialsToPlot = max(1,ss-100):ss;
         gMult = repmat(RampSamples.gammas(trialsToPlot)',length(range),1);
-        if(params.logLinTransfer)
-            tFunc = @(x) log(1+exp(x))*params.delta_t;
-        else
-            tFunc = @(x) exp(x)*params.delta_t;
-        end
         
         latentBlock = loadLatentsDB(trialsToPlot);
         for ii = 1:length(allTrs)
@@ -341,7 +336,7 @@ for ss = 2:totalSamples
                 end
             end
         end
-        plot(1:length(range),tFunc(latentBlock(range,:).*gMult),'b');
+        plot(1:length(range),firingRateFunc(latentBlock(range,:).*gMult),'b');
         plot(1:length(range),timeSeries.y(range),'r');
         hold off
         
@@ -364,7 +359,7 @@ catch exc %#ok<NASGU>
 end
 RampFit.auxThreshold.mean   = mean(RampSamples.auxThreshold(:,params.MCMC.burnIn+1:thinRate:end),2);
 RampFit.auxThreshold.median = median(RampSamples.auxThreshold(:,params.MCMC.burnIn+1:thinRate:end),2);
-RampFit.auxThreshold.std    = std(RampSamples.auxThreshold(:,params.MCMC.burnIn+1:thinRate:end),2);
+RampFit.auxThreshold.std    = std(RampSamples.auxThreshold(:,params.MCMC.burnIn+1:thinRate:end),[],2);
 
 RampFit.beta.mean  = mean(RampSamples.betas(params.MCMC.burnIn+1:thinRate:end,:))';
 RampFit.w2.mean    = mean(RampSamples.w2s(params.MCMC.burnIn+1:thinRate:end))';
@@ -374,7 +369,7 @@ RampFit.l_0.mean   = mean(RampSamples.l_0(params.MCMC.burnIn+1:thinRate:end))';
 RampFit.beta.interval  = prctile(RampSamples.betas(((params.MCMC.burnIn+1):thinRate:end),:),[2.5 97.5],1);
 RampFit.w2.interval    = prctile(RampSamples.w2s((params.MCMC.burnIn+1):thinRate:end,:),[2.5 97.5],1);
 RampFit.l_0.interval   = prctile(RampSamples.l_0((params.MCMC.burnIn+1):thinRate:end),[2.5 97.5],1);
-RampFit.gamma.interval = prctile(RampSamples.gammas((bparams.MCMC.burnIn+1):thinRate:end),[2.5 97.5],1);
+RampFit.gamma.interval = prctile(RampSamples.gammas((params.MCMC.burnIn+1):thinRate:end),[2.5 97.5],1);
 
 try 
     kcFreeGPUArray(gpu_y);

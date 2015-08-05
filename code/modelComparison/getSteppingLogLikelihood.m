@@ -5,7 +5,6 @@
 % modelFit.p.mean
 % modelFit.phi.mean
 % modelFit.r.mean
-
 function [l_like, trial_likelihood] = getSteppingLogLikelihood(timeSeries,params,modelFit)
 
 maxTrialLength = max(timeSeries.trialIndex(:,2) - timeSeries.trialIndex(:,1) + 1);

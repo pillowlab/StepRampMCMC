@@ -42,8 +42,7 @@ timeSeries.trialIndex(NT,1) = timeSeries.trialStart(NT);
 timeSeries.trialIndex(NT,2) = TT;
 
 
-%% ---------------------------
-%plot out a PSTH to make sure data look reasonable/correct
+%% plot out a PSTH to make sure data look reasonable/correct
 maxT = max(timeSeries.trialIndex(:,2) - timeSeries.trialIndex(:,1) + 1);
 PSTH  = zeros(maxT,2);
 PSTH2 = zeros(maxT,max(timeSeries.trCoh));
@@ -81,16 +80,23 @@ hold off
 drawnow;
 
 
-
-
-%% ---------------------------
+%% Ramping model fit
 kcResetDevice(); %does this reset thing to make sure GPU is ready - might not be necessary
 
+[RampFit, RampSamples] = fitRampingModel(timeSeries,params);
+[RampModelComp.DIC, RampModelComp.l_like,RampModelComp.DIClikelihoods ] = getRampingDIC(RampSamples,params,RampFit,timeSeries);
+clearLatentsDB();
 
+DICs(2) = RampModelComp.DIC;
+
+save(resultsFiles.ramp,'timeSeries','params','RampModelComp','RampFit','-v7.3');
+save(samplesFiles.ramp,'RampSamples','-v7.3');
+clear RampSamples
+
+%% Stepping model fit
+kcResetDevice(); %does this reset thing to make sure GPU is ready - might not be necessary
 
 [StepFit, StepSamples] = fitSteppingModel(timeSeries,params);
-
-
 [StepModelComp.DIC, StepModelComp.l_like,StepModelComp.DIClikelihoods ] = getSteppingDIC(StepSamples,params,StepFit,timeSeries);
 
 DICs(1) = StepModelComp.DIC;
@@ -99,24 +105,19 @@ save(resultsFiles.step,'timeSeries','params','StepModelComp','StepFit','-v7.3');
 save(samplesFiles.step,'StepSamples','-v7.3');
 clear StepSamples
 
-RampFit = [];
+%% Finish
+DICdiff = RampModelComp.DIC - StepModelComp.DIC;
 
+if(DICdiff > 0)
+    model = 'stepping';
+else
+    model = 'ramping';
+end
 
-return;
+if(~isfield(timeSeries,'trueParams'))
+    fprintf('Sampling complete. DIC difference = %4.1f (favors %s).\n',DICdiff,model);
+else
+    fprintf('Sampling complete. DIC difference = %4.1f (favors %s, true model %d).\n',DICdiff,model,timeSeries.trueParams.model);
+end
 
-
-%% --------------------------
-kcResetDevice(); %does this reset thing to make sure GPU is ready - might not be necessary
-
-[RampFit, RampSamples] = fitRampingModel(timeSeries,params);
-[RampModelComp.DIC, RampModelComp.l_like,RampModelComp.DIClikelihoods ] = getRampingDIC(RampSamples,params,RampFit,timeSeries);
-
-DICs(2) = RampModelComp.DIC;
-
-save(resultsFiles.ramp,'timeSeries','params','RampModelComp','RampFit','-v7.3');
-save(samplesFiles.ramp,'RampSamples','-v7.3');
-clear RampSamples
-
-
-%% ----------------------------
 kcResetDevice(); %does this reset thing to make sure all GPU stuff sent off by the samplers is finished

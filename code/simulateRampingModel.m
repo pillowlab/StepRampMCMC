@@ -7,7 +7,7 @@ timeSeries.trueParams.delta_t = 10e-3; %bin size in seconds
 
 %% model parameters (default parameters assume 5 coherence/stimulus levels)
 
-timeSeries.trueParams.model = 'Ramping';
+timeSeries.trueParams.model = 'ramping';
 timeSeries.trueParams.beta  = [-0.02 -0.01 0 0.01 0.02]; %coherence-dependent slope
 timeSeries.trueParams.l_0   = 0.5;  %inital diffusion point, must be less than one
 timeSeries.trueParams.w2    = 0.005; %diffusion variance

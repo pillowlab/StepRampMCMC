@@ -7,7 +7,7 @@ timeSeries.trueParams.delta_t = 10e-3; %bin size in seconds
 
 %% model parameters (default parameters assume 5 coherence/stimulus levels)
 
-timeSeries.trueParams.model = 'Stepping';
+timeSeries.trueParams.model = 'stepping';
 timeSeries.trueParams.alpha = [30 10 50]; %firing rate in initial, down, and up states (spikes/sec)
 timeSeries.trueParams.phi   = [0.05 0.25 0.5 0.75 0.95]; %coherence-dependent step "up" probability
 timeSeries.trueParams.p     = [0.92 0.95 0.97 0.95 0.92];  %coherence-dependent negative binomial step-time parameter (range 0-1)
