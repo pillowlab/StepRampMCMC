@@ -2,12 +2,9 @@ function [fName] = compileCUDAmex(fName)
 
 if(nargin > 0)
 
-    myCodeHome =  '/home/latimerk/gitCode/LIPStateSpaceRelease/code'; %absolute path!
-    sourceDir = [myCodeHome '/CUDAlib/src'];
-    objDir    = [myCodeHome '/CUDAlib/obj'];
-
-    CUDAdirectory   = '/usr/local/cuda-7.0';
-    MATLABdirectory = '/usr/local/MATLAB/R2013a/';
+    [myCodeHome, CUDAdirectory, MATLABdirectory] = myPaths(); 
+    sourceDir = [myCodeHome '/code/CUDAlib/src'];
+    objDir    = [myCodeHome '/code/CUDAlib/obj'];
     
     extraArgs = '-Xcompiler -fpic';
 

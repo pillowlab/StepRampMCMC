@@ -1,4 +1,12 @@
-fprintf('Make sure to set paths in code/CUDAlib/compileCUDAmex.m and code/CUDAlib/linkCUDAmex.m\n');
+% This script attempts to compile all the necessary CUDA functions into MEX
+% files. This function should be run from the base directory of the project
+%
+%
+% Before running, set the paths in code/CUDAlib/myPaths.m to match your CUDA
+% and MATLAB installation folders.
+
+
+fprintf('Make sure to set paths in code/CUDAlib/myPaths.m\n');
 
 %% adds path to some CUDA files
 addpath code/CUDAlib/

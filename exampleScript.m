@@ -1,8 +1,20 @@
-%% sets up necessary paths
-addpath ./code/
-addpath ./code/CUDAlib/mex/
-addpath ./code/largeDataHandlers/
+%% 
+%  This script shows the basics of how to run the model comparison for stepping/ramping dynamics
+%  given in
+%
+%    Kenneth W. Latimer, Jacob L. Yates, Miriam L. R. Meister, Alexander C. Huk, 
+%    & Jonathan W. Pillow (2015). Single-trial spike trains in parietal cortex reveal 
+%    discrete steps during decision-making. Science, 349(6244):184-187.
+%
+%
+%  Simulates stepping or ramping trials, and runs the model fitting/comparison
+%  on the simulated spikes.
+%   
+%  The CUDA files must be compiled before running this function.
+%  See code/CUDAlib/compileAllMexFiles.m to run the compiler.
 
+%% sets up necessary paths
+addAllPaths;
 
 %% gets a simulated stepping neuron
 timeSeries = simulateSteppingModel();
