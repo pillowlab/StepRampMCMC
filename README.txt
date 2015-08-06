@@ -7,7 +7,7 @@ and "ramping" model to the data, and compares the model fits with the Deviance
 Information Criterion (DIC).
 
 Requirements:
-    MATLAB version R2013a (or above)
+    MATLAB version R2013a (or above) with statistics toolbox
     Nvidia CUDA toolkit (version 7.0 recommended)
     Nvidia graphics card (compute version 1.3 or above. 
         At least 1GB of graphics memory is recommended)

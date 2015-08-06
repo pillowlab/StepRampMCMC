@@ -1,15 +1,28 @@
-%% Fit a stepping model to the observed spiking trials
-% Model of a trial
-%   z ~ negative binomial(p,r)     p is stimulus coherence dependent, r is shared across all trials
-%   s ~ bernoulli(phi)   valued on set {2,3} instead of {0,1} for indexing (P(s=3) = phi),   phi is stimulus coherence dependent
+%% Fit a stepping model to the observed spiking trials by sampling over the 
+%  posterior distribution p(\Theta,z,s|y) where
+%   y = observed spikes
+%   \Theta = model parameters
+%   z,s    = latent variables (step times and step directions)
+%  by taking only the samples of \Theta, we obtain a sampled estimate of
+%         p(\Theta|y)
+%
+% model params
+%  alpha - firing rates. 3 values (one for each init, up, and down states). Takes values [0, \infty)
+%  p     - step time parameter. 1 value per stimulus/coherence level. Takes values [0, 1]
+%  r     - step time parameter. 1 value. Takes values (0, \infty)
+%  phi   - step up/down probability. 1 value per stimulus/coherence level. Takes values [0, 1]
+%
+% Model of a trial (trial number j)
+%   z ~ negative binomial(p(timeSeries.trCoh(j)),r)     p is stimulus coherence dependent, r is shared across all trials
+%   s ~ bernoulli(phi(timeSeries.trCoh(j)))   valued on set {2,3} instead of {0,1} for indexing (P(s=3) = phi),   phi is stimulus coherence dependent
 %
 %
 %   for t = 1...T  (T=trial length)
-%   (y(t) | t<z)      ~ Poisson(alpha(1) dt)
-%   (y(t) | t>=z,s=2) ~ Poisson(alpha(2) dt)
-%   (y(t) | t>=z,s=3) ~ Poisson(alpha(3) dt)
+%   (y(t) | t<z)      ~ Poisson(alpha(1) * params.delta_t)
+%   (y(t) | t>=z,s=2) ~ Poisson(alpha(2) * params.delta_t)
+%   (y(t) | t>=z,s=3) ~ Poisson(alpha(3) * params.delta_t)
 %
-% Model outputs
+% Model fiting outputs
 %   StepSamples.alpha = firing rates per each state (3,numSamples)
 %   StepSamples.r     = negative binomial failure number parameter (1,numSamples)
 %   StepSamples.p     = negative binomial success probability parameter (numCoherences,numSamples)
@@ -17,15 +30,16 @@
 %   StepSamples.z     = sampled switch times per trial (NT,numSamples)
 %   StepSamples.s     = state switched to in each trial (NT,numSamples);
 %
-%   StepSamples.spikeStats = summary of spike count (column 1) and number of observations (column 2) per each hidden state as sampled in z,s
+%   StepSamples.spikeStats = summary of spike count (column 1) and number of observations (column 2) for each state
+%                            Used for sampling
 %
 %
 %   StepSamples includes the burnin period samples 
 %
-%   StepFit contains sample mean of each parameter (after throwing out burnin)
+%   StepFit contains sample mean of each parameter (after throwing out burnin and thinning according to params.MCMC.thin)
+%           and a 95% credible interval. (This structure summarizes the StepSamples)
+%        e.g., StepFit.alpha.mean   contains the posterior mean over the firing rate parameters
 % 
-%
-% samples - num samples to get POST burn in
 %
 %
 % timeSeries - holds all trial information (NT = number of trials)
@@ -47,6 +61,7 @@
 function [StepFit, StepSamples] = fitSteppingModel(timeSeries,params)           
 
 totalSamples = params.MCMC.nSamples+params.MCMC.burnIn;
+timeSeries = setupTrialIndexStructure(timeSeries);
 
 %% get trial info
 
@@ -70,7 +85,9 @@ StepSamples.r      = zeros(1,totalSamples);
 StepSamples.z      = zeros(NT,totalSamples);
 StepSamples.s      = zeros(NT,totalSamples);
 
-StepSamples.spikeStats = zeros(3,2,totalSamples);
+StepSamples.spikeStats = zeros(3,2,totalSamples); %summary of spike count (column 1) 
+           %and number of observations (column 2) for each state
+           %Used for sampling the alphas
 
 %saves extra info for Rao-Blackwellized estimates of alpha,p, and phi (these estimates do not exist for r)
 StepSamples.rb.alpha = zeros(3,totalSamples);

@@ -1,14 +1,69 @@
-
+%% Fit a ramping model to the observed spiking trials by sampling over the 
+%  posterior distribution p(\Theta,lambdas|y) where
+%   y = observed spikes
+%   \Theta  = model parameters
+%   lambdas = latent variables (diffusion-to-bound paths)
+%  by taking only the samples of \Theta, we obtain a sampled estimate of
+%         p(\Theta|y)
+%
+% model params
+%  beta  - drift slope. 1 value per stimulus/coherence level.. Takes values (-\infty, \infty)
+%  l_0   - initial diffusion position. 1 value. Takes values (-\infty, 1)
+%  w2    - diffusion variance. 1 value. Takes values (0, \infty)
+%  gamma - bound height parameter. 1 value. Takes values (0, \infty)
+%
+% Model of a trial (trial number j)
+%
+%   lambda(1) = l_0 + randn*sqrt(w2);    (randn*sqrt(w2) gives zero mean Gaussian noise with variance w2)
+%   
+%   for t = 2...T  (T=trial length)
+%     lambda(t) = lambda(t-1) + beta(timeSeries.trCoh(j)) + randn*sqrt(w2)
+%   end 
+%   auxThreshold(j) = find first t such that lambda(t) > 1 (if doesn't exist set to T+1)
+%
+%   y(t|t <  auxThreshold(j))      ~ Poisson(log(1+ exp(lambda(t)*gamma))* params.delta_t)
+%   y(t|t >= auxThreshold(j))      ~ Poisson(log(1+ exp(          gamma))* params.delta_t)
+%
+% Model fiting outputs
+%   RampSamples.betas  = drift slopes (numSamples,numCoherences)
+%   RampSamples.l_0    = initial drift position (numSamples,1)
+%   RampSamples.w2s    = drift variance (numSamples,1)
+%   RampSamples.gammas = bound height (or diffusion path scaling) parameter (numSamples,1)
+%
+%   RampSamples.auxThreshold = auxiliary variable to say when (if) bound was hit on each trial for each sample of lambda 
+%                              (NT,numSamples)
+%                              if RampSamples.auxThreshold is < 0 or greater than the trial length, then bound was not hit on the sample
+%
+%
+%
+%   RampSamples includes the burnin period samples 
+%
+%   RampFit contains sample mean of each parameter (after throwing out burnin and thinning according to params.MCMC.thin)
+%           and a 95% credible interval. (This structure summarizes the RampSamples)
+%        e.g., RampFit.beta.mean   contains the posterior mean over the drift slope rate parameters
+% 
+%
+%
 % timeSeries - holds all trial information (NT = number of trials)
 %   timeSeries.y          = spikes at each time (one long vector) 
 %   timeSeries.trialIndex = NT x 2 matrix, each row holds the start and end
 %                           indices for each trial (with respect to timeSeries.y)
 %   timeSeries.trCoh        = coherence for each trial
 %
+%
+%   model priors
+%       beta(i)  ~ normal(params.rampPrior.beta_mu, params.rampPrior.beta_sigma^2)
+%       l_0      ~ normal(params.rampPrior.l0_mu, params.rampPrior.l0_sigma^2)
+%       w2       ~ inverse-gamma(params.rampPrior.w2_shape,params.rampPrior.w2_scale)
+%       gamma    ~ gamma(params.rampPrior.gammaAlpha,params.rampPrior.gammaBeta)
+%
+
+
 function [ RampFit, RampSamples] = fitRampingModel(timeSeries,params)
 
 
 totalSamples = params.MCMC.nSamples+params.MCMC.burnIn;
+timeSeries = setupTrialIndexStructure(timeSeries);
 TT = size(timeSeries.y,1);
 NT = size(timeSeries.trialIndex,1);
 NC = max(timeSeries.trCoh);

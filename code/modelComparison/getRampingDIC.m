@@ -1,5 +1,6 @@
 function [DIC, l_like,DIClikelihoods ] = getRampingDIC(RampSamples,params,modelFit,timeSeries)
 
+timeSeries = setupTrialIndexStructure(timeSeries);
 
 betas  = modelFit.beta.mean';
 w2s    = modelFit.w2.mean';

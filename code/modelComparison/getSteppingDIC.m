@@ -1,5 +1,6 @@
 function [DIC, l_like,DIClikelihoods ] = getSteppingDIC(StepSamples,params,modelFit,timeSeries)
 
+timeSeries = setupTrialIndexStructure(timeSeries);
 
 
 %% get log likelihood

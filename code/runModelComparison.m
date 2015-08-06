@@ -22,22 +22,22 @@
 %
 %   params - parameters structure is set in the setupMCMCParams.m file
 %            params include the bin size of the spike count structure
+%
+% outputs
+%   DICs    = array consisting of 2 elements [Step Model DIC, Ramp Model DIC]
+%   StepFit, RampFit = structures summarizing the MCMC run on the data. Details for each given in
+%                       code/modelFitting/fitRampingModel.m
+%                       code/modelFitting/fitSteppingModel.m
+%
+%  Additionally, this script saves out a results structure containing Step/RampFit and the model comparison results.
+%  The MCMC samples are saved out in a structure as well (detailed in the model fitting scripts)
+%
 
 function [DICs, StepFit, RampFit] = runModelComparison( timeSeries, params, resultsFiles, samplesFiles)
 
 DICs = [nan nan];
 
-%% sets up a structure that gives trial start and end time
-NT = length(timeSeries.trialStart);
-TT = length(timeSeries.y);
-timeSeries.trialIndex = zeros(NT,2);
-for ii = 1:NT-1
-    timeSeries.trialIndex(ii,1) = timeSeries.trialStart(ii);
-    timeSeries.trialIndex(ii,2) = timeSeries.trialStart(ii+1)-1;
-end
-timeSeries.trialIndex(NT,1) = timeSeries.trialStart(NT);
-timeSeries.trialIndex(NT,2) = TT;
-
+timeSeries = setupTrialIndexStructure(timeSeries);
 
 %% plot out a PSTH to make sure data look reasonable/correct
 maxT = max(timeSeries.trialIndex(:,2) - timeSeries.trialIndex(:,1) + 1);

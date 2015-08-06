@@ -13,7 +13,7 @@
 %  The CUDA files must be compiled before running this function.
 %  See code/CUDAlib/compileAllMexFiles.m to run the compiler.
 
-%% sets up necessary paths
+%% sets up necessary paths to code
 addAllPaths;
 
 %% gets a simulated stepping neuron

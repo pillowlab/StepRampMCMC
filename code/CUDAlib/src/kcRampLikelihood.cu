@@ -104,6 +104,7 @@ __global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int
 //  8  = number of samples to use to estimate log probability of observations (I recommend using at least 1000)
 //outputs (left-hand side)
 //  0  = log p(y|\theta)
+//  1  = log p(y|\theta) for each individual trial
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     cudaError_t ce;
 
@@ -207,6 +208,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     if(nlhs > 0) {
          plhs[0] = mxCreateNumericMatrix(1,1,KC_FP_TYPE_MATLAB,mxREAL);
          checkCudaErrors(cudaMemcpy((KC_FP_TYPE *)mxGetPr(plhs[0]),sum_log_p,1*sizeof(KC_FP_TYPE),cudaMemcpyDeviceToHost));
+    }
+    if(nlhs > 1) {
+         plhs[1] = mxCreateNumericMatrix(NT,1,KC_FP_TYPE_MATLAB,mxREAL);
+         checkCudaErrors(cudaMemcpy((KC_FP_TYPE *)mxGetPr(plhs[1]),log_p,NT*sizeof(KC_FP_TYPE),cudaMemcpyDeviceToHost));
     }
     
     

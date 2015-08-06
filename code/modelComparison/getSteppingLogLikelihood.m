@@ -7,6 +7,8 @@
 % modelFit.r.mean
 function [l_like, trial_likelihood] = getSteppingLogLikelihood(timeSeries,params,modelFit)
 
+timeSeries = setupTrialIndexStructure(timeSeries);
+
 maxTrialLength = max(timeSeries.trialIndex(:,2) - timeSeries.trialIndex(:,1) + 1);
 NC = max(timeSeries.trCoh);
 
