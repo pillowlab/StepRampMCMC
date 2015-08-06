@@ -7,13 +7,14 @@ and "ramping" model to the data, and compares the model fits with the Deviance
 Information Criterion (DIC).
 
 Requirements:
-    MATLAB version R2013a (or above)
+    MATLAB version R2013a (or above) with statistics toolbox
     Nvidia CUDA toolkit (version 7.0 recommended)
     Nvidia graphics card (compute version 1.3 or above. 
-        At least 1GB of graphics memory is recommended)
+        At least 1GB of graphics memory is recommended.
+        Apologies to any AMD users.)
 Recommended:
     Ubuntu 15.04
-    16GB RAM
+    16+GB RAM
 
 The tools provided run in MATLAB and use Nvidia's CUDA toolkit to accelerate
 compution. Running this package requires an Nvidia GPU.
@@ -30,6 +31,9 @@ To compile the CUDA files into MEX files that can be executed by MATLAB, see
     code/CUDAlib/myPaths.m (tells the compiler where to find your MATLAB and
                             CUDA installations)
     code/CUDAlib/compileAllMexFiles.m (runs the compile/link scripts)
+    
+WARNING: Using these CUDA tools and MATLAB's native GPU functions  in the same
+         session may cause a library conflict that will crash MATLAB.
 
 
 Running the model comparison:
