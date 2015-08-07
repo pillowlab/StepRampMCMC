@@ -3,8 +3,8 @@ function params = setupMCMCParams()
 
 %% MCMC runs
 
-params.MCMC.nSamples = 1e3; %number of MCMC samples to get (post burn-in)
-params.MCMC.burnIn   = 1e3; %number of samples for burn in
+params.MCMC.nSamples = 50e3; %number of MCMC samples to get (post burn-in)
+params.MCMC.burnIn   = 10e3; %number of samples for burn in
 
 params.MCMC.thinRate = 5;    %thin chain - take every X samples
                              %effective number of samples is then params.MCMC.nSamples/params.MCMC.thinRate

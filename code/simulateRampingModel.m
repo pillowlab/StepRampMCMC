@@ -1,7 +1,7 @@
 function timeSeries = simulateRampingModel()
 
 %%
-NT = 100; %number of trials per coherence level (this function always simulates equal number of trials for all coherences)
+NT = 10; %number of trials per coherence level (this function always simulates equal number of trials for all coherences)
 trLength = [50 100]; %trial lengths are chosen uniformly between trLength(1) and trLength(2) bins
 timeSeries.delta_t = 10e-3; %bin size in seconds
 timeSeries.timeAfterDotsOn = 200e-3; %saying that the spike counts here begin 200ms after stimulus onset
@@ -61,4 +61,4 @@ for cc = 1:NC
         timeSeries.choice(trNum) = (rand>timeSeries.trueParams.choiceP(cc)) + 1;
     end
 end
-fprintf('done.');
+fprintf('done.\n');

@@ -18,7 +18,7 @@ addAllPaths;
 
 %% gets spikes from a simulated neuron
 % timeSeries = simulateRampingModel();
-timeSeries = simulateRampingModel();
+timeSeries = simulateSteppingModel();
 
 %% gets parameters
 params = setupMCMCParams();
@@ -27,8 +27,16 @@ params = setupMCMCParams();
 resultsFiles.ramp = './Results/RampFit_Sim.mat';
 resultsFiles.step = './Results/StepFit_Sim.mat';
 
+if(~exist('./Results/','file'))
+    mkdir('Results');
+end
+
 samplesFiles.ramp = './Samples/RampFit_Sim.mat';
 samplesFiles.step = './Samples/StepFit_Sim.mat';
+
+if(~exist('./Samples/','file'))
+    mkdir('Samples');
+end
 
 %% sets which GPU to use
 kcSetDevice(0); %in case you have more than one GPU and want to select (0 is the default)
