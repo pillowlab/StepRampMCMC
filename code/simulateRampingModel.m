@@ -1,9 +1,10 @@
 function timeSeries = simulateRampingModel()
 
 %%
-NT = 10; %number of trials per coherence level
+NT = 100; %number of trials per coherence level (this function always simulates equal number of trials for all coherences)
 trLength = [50 100]; %trial lengths are chosen uniformly between trLength(1) and trLength(2) bins
-timeSeries.trueParams.delta_t = 10e-3; %bin size in seconds
+timeSeries.delta_t = 10e-3; %bin size in seconds
+timeSeries.timeAfterDotsOn = 200e-3; %saying that the spike counts here begin 200ms after stimulus onset
 
 %% model parameters (default parameters assume 5 coherence/stimulus levels)
 
@@ -28,6 +29,7 @@ timeSeries.trueParams.x = nan(sum(trLengths),1);
 timeSeries.trCoh   = nan(NC*NT,1);
 
 %% simulate diffusion paths
+fprintf('Simulating from the ramping model (%d total trials, %d coherence levels)...\n',NC*NT,NC);
 for cc = 1:NC
     for tr = 1:NT
         trNum = (cc-1)*NT + tr;
@@ -47,7 +49,7 @@ for cc = 1:NC
         
         fr = log(1+exp(xs*timeSeries.trueParams.gamma)); %firing rate (sp/sec)
         
-        y  = poissrnd(fr*timeSeries.trueParams.delta_t); %spike counts
+        y  = poissrnd(fr*timeSeries.delta_t); %spike counts
         
         %inserts simulation into time series
         T1 = timeSeries.trialStart(trNum);
@@ -59,3 +61,4 @@ for cc = 1:NC
         timeSeries.choice(trNum) = (rand>timeSeries.trueParams.choiceP(cc)) + 1;
     end
 end
+fprintf('done.');

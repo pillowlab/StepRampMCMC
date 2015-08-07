@@ -18,9 +18,9 @@
 %
 %
 %   for t = 1...T  (T=trial length)
-%   (y(t) | t<z)      ~ Poisson(alpha(1) * params.delta_t)
-%   (y(t) | t>=z,s=2) ~ Poisson(alpha(2) * params.delta_t)
-%   (y(t) | t>=z,s=3) ~ Poisson(alpha(3) * params.delta_t)
+%   (y(t) | t<z)      ~ Poisson(alpha(1) * timeSeries.delta_t)
+%   (y(t) | t>=z,s=2) ~ Poisson(alpha(2) * timeSeries.delta_t)
+%   (y(t) | t>=z,s=3) ~ Poisson(alpha(3) * timeSeries.delta_t)
 %
 % Model fiting outputs
 %   StepSamples.alpha = firing rates per each state (3,numSamples)
@@ -103,15 +103,15 @@ StepSamples.p(:,1) = 1/(StepSamples.r(1)/mu + 1);%0.83;
 StepSamples.phi(:,1) = 0.5; %initial probability of stepping up for all stimulus levels
 
 %% initializes firing rates - state 0 as average rate in bin 1, and states 2,3 as firing rates in last 3 bins for in/out choices
-StepSamples.alpha(1,1) = mean(timeSeries.y(timeSeries.trialIndex(:,1)))/params.delta_t;
+StepSamples.alpha(1,1) = mean(timeSeries.y(timeSeries.trialIndex(:,1)))/timeSeries.delta_t;
 
 timeIndices = timeSeries.trialIndex(timeSeries.choice == 1 ,2);
 timeIndices = [timeIndices;timeIndices-1;timeIndices-2]; 
-endFR1 =  max(mean( timeSeries.y(timeIndices )), 1e-20)/params.delta_t;
+endFR1 =  max(mean( timeSeries.y(timeIndices )), 1e-20)/timeSeries.delta_t;
 
 timeIndices = timeSeries.trialIndex(timeSeries.choice == 2 ,2);
 timeIndices = [timeIndices;timeIndices-1;timeIndices-2]; 
-endFR2 =  max(mean( timeSeries.y(timeIndices )), 1e-20)/params.delta_t;
+endFR2 =  max(mean( timeSeries.y(timeIndices )), 1e-20)/timeSeries.delta_t;
 
 StepSamples.alpha(2,1) = min(endFR1,endFR2);
 StepSamples.alpha(3,1) = max(endFR1,endFR2);
@@ -161,7 +161,7 @@ for ss = 2:totalSamples
         nbPDF(:,cc) = gammaln(x+r_c) - (gammaln(x+1)+gammaln(r_c)) + r_c*log(1-p_c) + x.*log(p_c);
     end
     
-    [StepSamples.z(:,ss), StepSamples.s(:,ss), StepSamples.spikeStats(:,:,ss)] = kcStepTimeSampler(gpu_y,gpu_trIndex,gpu_trCoh,StepSamples.alpha(:,ss-1),StepSamples.phi(:,ss-1),nbPDF,params.delta_t);
+    [StepSamples.z(:,ss), StepSamples.s(:,ss), StepSamples.spikeStats(:,:,ss)] = kcStepTimeSampler(gpu_y,gpu_trIndex,gpu_trCoh,StepSamples.alpha(:,ss-1),StepSamples.phi(:,ss-1),nbPDF,timeSeries.delta_t);
     
     
     %% sample the firing rates, switch-to-state probabilities and p from the negative binomial (all independent given r,y,and latent states)
@@ -210,7 +210,7 @@ for ss = 2:totalSamples
         StepSamples.alpha(3,ss) = StepSamples.alpha(2,ss)+1e-3;
     end
     
-    StepSamples.alpha(:,ss) = StepSamples.alpha(:,ss)./params.delta_t; %scale new parameters with time bin size - makes alpha in terms of spikes/second
+    StepSamples.alpha(:,ss) = StepSamples.alpha(:,ss)./timeSeries.delta_t; %scale new parameters with time bin size - makes alpha in terms of spikes/second
     
     %negative binomial switch time parameter p sampler
     r_c = StepSamples.r(ss-1);
@@ -292,7 +292,8 @@ for ss = 2:totalSamples
         plot(1:ss,StepSamples.alpha(:,1:ss))
         meanAlpha = mean(StepSamples.alpha(:,startMean:ss),2);
         plot([1 totalSamples],[meanAlpha meanAlpha],':');
-        title(['Firing rates: ' num2str(meanAlpha')]);
+        titleStr = sprintf('Firing rates - init %2.2f, down %2.2f, up %2.2f', meanAlpha(1), meanAlpha(2), meanAlpha(3));
+        title(titleStr);
         xlim([1 totalSamples]);
         ylim([0 max(max(StepSamples.alpha(:,1:ss)))*1.05]);
         hold off
@@ -302,8 +303,8 @@ for ss = 2:totalSamples
         plot(1:ss,StepSamples.r(:,1:ss))
         meanR = mean(StepSamples.r(startMean:ss));
         plot([1 totalSamples],[meanR meanR],':k');
-        rtitle = sprintf('Negative binomial r, acceptance rate = %f, MALA epsilon = %f, mean r = %f', mean(StepSamples.acceptanceCount.r(2:ss)),epsilon, meanR);
-        title(rtitle);
+        titleStr = sprintf('Negative binomial r, acceptance rate = %1.2f, MALA epsilon = %1.3f, mean r = %2.2f', mean(StepSamples.acceptanceCount.r(2:ss)),epsilon, meanR);
+        title(titleStr);
         xlim([1 totalSamples]);
         ylim([0 max(max(StepSamples.r(:,1:ss)))*1.05]);
         hold off
@@ -317,7 +318,8 @@ for ss = 2:totalSamples
             plot([1 totalSamples],[meanPhi meanPhi],':','Color',[0 0 0]);
             meanP = mean(StepSamples.p(cc,startMean:ss));
             plot([1 totalSamples],[meanP meanP],':','Color',[0 0 1]);
-            title(['Coh ' num2str(cc),' Mean p = ' num2str(meanP) ', mean phi = ' num2str(meanPhi)]);
+            titleStr = sprintf('Coh %d: mean p = %1.2f, mean phi = %1.2f',cc,meanP,meanPhi);
+            title(titleStr);
             xlim([1 totalSamples]);
             ylim([0 1]);
             hold off

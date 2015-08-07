@@ -16,15 +16,12 @@
 %% sets up necessary paths to code
 addAllPaths;
 
-%% gets a simulated stepping neuron
+%% gets spikes from a simulated neuron
+% timeSeries = simulateRampingModel();
 timeSeries = simulateRampingModel();
-% timeSeries = simulateSteppingModel();
 
 %% gets parameters
 params = setupMCMCParams();
-
-%% sets up GPU
-kcSetDevice(0); %in case you have more than 1 GPU, this sets which device to use
 
 %% set files for output
 resultsFiles.ramp = './Results/RampFit_Sim.mat';
@@ -32,6 +29,9 @@ resultsFiles.step = './Results/StepFit_Sim.mat';
 
 samplesFiles.ramp = './Samples/RampFit_Sim.mat';
 samplesFiles.step = './Samples/StepFit_Sim.mat';
+
+%% sets which GPU to use
+kcSetDevice(0); %in case you have more than one GPU and want to select (0 is the default)
 
 %% runs model comparison
 

@@ -38,16 +38,16 @@ for tr = 1:NT
     
     T = T2-T1+1;
     
-    ps1 = -params.delta_t*modelFit.alpha.mean(1)+timeSeries.y(T1:T2)   .*(log(modelFit.alpha.mean(1)) + log(params.delta_t)) - gammaln(timeSeries.y(T1:T2)+1);
-    ps2 = -params.delta_t*modelFit.alpha.mean(2)+timeSeries.y(T2:-1:T1).*(log(modelFit.alpha.mean(2)) + log(params.delta_t)) - gammaln(timeSeries.y(T2:-1:T1)+1);
-    ps3 = -params.delta_t*modelFit.alpha.mean(3)+timeSeries.y(T2:-1:T1).*(log(modelFit.alpha.mean(3)) + log(params.delta_t)) - gammaln(timeSeries.y(T2:-1:T1)+1);
+    ps1 = -timeSeries.delta_t*modelFit.alpha.mean(1)+timeSeries.y(T1:T2)   .*(log(modelFit.alpha.mean(1)) + log(timeSeries.delta_t)) - gammaln(timeSeries.y(T1:T2)+1);
+    ps2 = -timeSeries.delta_t*modelFit.alpha.mean(2)+timeSeries.y(T2:-1:T1).*(log(modelFit.alpha.mean(2)) + log(timeSeries.delta_t)) - gammaln(timeSeries.y(T2:-1:T1)+1);
+    ps3 = -timeSeries.delta_t*modelFit.alpha.mean(3)+timeSeries.y(T2:-1:T1).*(log(modelFit.alpha.mean(3)) + log(timeSeries.delta_t)) - gammaln(timeSeries.y(T2:-1:T1)+1);
     
     
     ps1 = cumsum(ps1);
     ps2 = cumsum(ps2);
     ps3 = cumsum(ps3);
     
-    like_norm = 0;%sum(timeSeries.y(T1:T2).*log(params.delta_t) - gammaln(timeSeries.y(T1:T2)+1));
+    like_norm = 0;%sum(timeSeries.y(T1:T2).*log(timeSeries.delta_t) - gammaln(timeSeries.y(T1:T2)+1));
     
     sp2 = zeros(T,1);
     sp3 = zeros(T,1);

@@ -31,7 +31,7 @@ for ii = blockOrderToRun
     
     loadLatentFileDB(ii);
     
-    indicesInBlock = find(indices(blockIdx == ii));
+    indicesInBlock = find(blockIdx == ii);
     offset = (ii-1)*DataRowsPerBlock;
      
     

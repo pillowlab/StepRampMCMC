@@ -29,7 +29,7 @@ if(nargin > 0)
     maxSizePerBlock      = 1e9;
     
     if(nargin >= 2 && rowsToInitialize >= 1)
-        sizeToStartBlocking  = 20e9;
+        sizeToStartBlocking  = 20e9; %Maximum amount of memory to take up with latent vars
         bytesNeeded = rowLength*rowsToInitialize*8;
         if(sizeToStartBlocking >= bytesNeeded) 
             maxSizePerBlock = sizeToStartBlocking;

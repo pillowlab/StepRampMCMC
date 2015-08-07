@@ -11,6 +11,10 @@
 %                             These values should be integers, taking values 1,2,3,...,NC-1,NC where NC is the number of categories.
 %     timeSeries.choice     = choice on every trial (either 1 or 2) - only used for initializing MCMC fits and for a plot
 %                             it does not really matter which choice (in-RF or out-RF) is 1 or 2 in this code
+%     
+%     timeSeries.delta_t         =  spike count bin size used to make timeSeries.y - here it is in seconds
+%     timeSeries.timeAfterDotsOn =  analysis start time after stimulus on (here it's only used for some plots and does not need to be accurate)
+%
 %
 %   resultsFiles - full file name/path for storing main results. This is a structure that contains fields for each model's result:
 %     resultsFiles.step     
@@ -62,20 +66,31 @@ figure(50);
 clf
 subplot(1,2,1);
 hold on
-plot(((1:maxT)*params.delta_t + params.timeAfterDotsOn)*1e3,(PSTH./Ns)./params.delta_t);
+plot(((1:maxT)*timeSeries.delta_t + timeSeries.timeAfterDotsOn)*1e3,(PSTH./Ns)./timeSeries.delta_t);
 ylabel('spks/s');
 xlabel('time after motion onset');
 title('Choice sorted');
 hold off
 subplot(1,2,2);
 hold on
-plot(((1:maxT)*params.delta_t + params.timeAfterDotsOn)*1e3,(PSTH2./Ns2)./params.delta_t);
+plot(((1:maxT)*timeSeries.delta_t + timeSeries.timeAfterDotsOn)*1e3,(PSTH2./Ns2)./timeSeries.delta_t);
 ylabel('spks/s');
 xlabel('time after motion onset');
 title('Coherence sorted');
 hold off
 drawnow;
 
+%% Stepping model fit
+kcResetDevice(); %does this reset thing to make sure GPU is ready - might not be necessary
+
+[StepFit, StepSamples] = fitSteppingModel(timeSeries,params);
+[StepModelComp.DIC, StepModelComp.l_like,StepModelComp.DIClikelihoods ] = getSteppingDIC(StepSamples,params,StepFit,timeSeries);
+
+DICs(1) = StepModelComp.DIC;
+
+save(resultsFiles.step,'timeSeries','params','StepModelComp','StepFit','-v7.3');
+save(samplesFiles.step,'StepSamples','-v7.3');
+clear StepSamples
 
 %% Ramping model fit
 kcResetDevice(); %does this reset thing to make sure GPU is ready - might not be necessary
@@ -90,17 +105,7 @@ save(resultsFiles.ramp,'timeSeries','params','RampModelComp','RampFit','-v7.3');
 save(samplesFiles.ramp,'RampSamples','-v7.3');
 clear RampSamples
 
-%% Stepping model fit
-kcResetDevice(); %does this reset thing to make sure GPU is ready - might not be necessary
 
-[StepFit, StepSamples] = fitSteppingModel(timeSeries,params);
-[StepModelComp.DIC, StepModelComp.l_like,StepModelComp.DIClikelihoods ] = getSteppingDIC(StepSamples,params,StepFit,timeSeries);
-
-DICs(1) = StepModelComp.DIC;
-
-save(resultsFiles.step,'timeSeries','params','StepModelComp','StepFit','-v7.3');
-save(samplesFiles.step,'StepSamples','-v7.3');
-clear StepSamples
 
 %% Finish
 DICdiff = RampModelComp.DIC - StepModelComp.DIC;

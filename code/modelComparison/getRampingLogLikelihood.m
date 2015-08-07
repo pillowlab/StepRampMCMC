@@ -7,7 +7,7 @@
 % modelFit.gamma.mean
 %
 % This value is approximated using Monte Carlo simulations (params.DIC.meanLikelihoodSamples per trial)
-function [l_like, trial_likelihood] = getSteppingLogLikelihood(timeSeries,params,modelFit)
+function [l_like, trial_likelihood] = getRampingLogLikelihood(timeSeries,params,modelFit)
 
 timeSeries = setupTrialIndexStructure(timeSeries);
 
@@ -41,7 +41,7 @@ gpu_trBetaIndex      = kcArrayToGPUint(int32(betaVector));
 
 
 %% compute likelihood
-[l_like,trial_likelihood] = kcRampLikelihood(gpu_y, gpu_trIndex, gpu_trBetaIndex, betas, w2s, l_0, gamma, params.delta_t, params.DIC.meanLikelihoodSamples);
+[l_like,trial_likelihood] = kcRampLikelihood(gpu_y, gpu_trIndex, gpu_trBetaIndex, betas, w2s, l_0, gamma, timeSeries.delta_t, params.DIC.meanLikelihoodSamples);
 
 %% free up GPU variables
 

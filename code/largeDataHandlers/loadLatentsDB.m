@@ -22,7 +22,8 @@ blockIdx = floor((indices-1)/DataRowsPerBlock) + 1;
 % save each block, starting with any rows in current block
 blockIdxs = unique(blockIdx);
 
-for ii = [blockIdxs(blockIdxs == DataBlockNumber) blockIdxs(blockIdxs ~= DataBlockNumber)]
+blockOrder = [blockIdxs(blockIdxs == DataBlockNumber) blockIdxs(blockIdxs ~= DataBlockNumber)];
+for ii = blockOrder
     
     loadLatentFileDB(ii);
     

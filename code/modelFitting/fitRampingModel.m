@@ -21,8 +21,8 @@
 %   end 
 %   auxThreshold(j) = find first t such that lambda(t) > 1 (if doesn't exist set to T+1)
 %
-%   y(t|t <  auxThreshold(j))      ~ Poisson(log(1+ exp(lambda(t)*gamma))* params.delta_t)
-%   y(t|t >= auxThreshold(j))      ~ Poisson(log(1+ exp(          gamma))* params.delta_t)
+%   y(t|t <  auxThreshold(j))      ~ Poisson(log(1+ exp(lambda(t)*gamma))* timeSeries.delta_t)
+%   y(t|t >= auxThreshold(j))      ~ Poisson(log(1+ exp(          gamma))* timeSeries.delta_t)
 %
 % Model fiting outputs
 %   RampSamples.betas  = drift slopes (numSamples,numCoherences)
@@ -70,8 +70,8 @@ NC = max(timeSeries.trCoh);
 
 
 %% max firing rate (bound) initialization ------------------------------
-firingRateFunc    = @(X) log(1+exp(X))*params.delta_t;
-firingRateFuncInv = @(X) log(exp(X/params.delta_t)-1);
+firingRateFunc    = @(X) log(1+exp(X))*timeSeries.delta_t;
+firingRateFuncInv = @(X) log(exp(X/timeSeries.delta_t)-1);
 timeIndices = timeSeries.trialIndex(: ,1);
 timeIndices = [timeIndices;timeIndices+1;timeIndices+2]; 
 startFR = firingRateFuncInv(  max(mean( timeSeries.y(timeIndices )), 1e-20));
@@ -184,7 +184,7 @@ for ss = 2:totalSamples
     gpu_lambdaN       = kcArrayGetColumn(gpu_lambda,mod(lambdaCounter+1,lambdaBlockSize));
     gpu_auxThresholdN = kcArrayGetColumnInt(gpu_auxThreshold,mod(lambdaCounter+1,lambdaBlockSize));
 
-    kcRampPathSampler(gpu_lambdaN,gpu_auxThresholdN,gpu_y,gpu_trIndex,gpu_trBetaIndex,RampSamples.betas(ss-1,:),RampSamples.w2s(ss-1),RampSamples.l_0(ss-1),RampSamples.gammas(ss-1),params.delta_t, params.rampSampler.numParticles, params.rampSampler.minNumParticles,params.rampSampler.sigMult,maxTrLength, c, p);
+    kcRampPathSampler(gpu_lambdaN,gpu_auxThresholdN,gpu_y,gpu_trIndex,gpu_trBetaIndex,RampSamples.betas(ss-1,:),RampSamples.w2s(ss-1),RampSamples.l_0(ss-1),RampSamples.gammas(ss-1),timeSeries.delta_t, params.rampSampler.numParticles, params.rampSampler.minNumParticles,params.rampSampler.sigMult,maxTrLength, c, p);
     
     lambdaCounter = mod(lambdaCounter+1,lambdaBlockSize);
     if(lambdaCounter == lambdaBlockSize-1) 
@@ -269,7 +269,7 @@ for ss = 2:totalSamples
     gamma_b = params.rampPrior.gammaBeta;
     
     G_prior = -(gamma_a-1)/RampSamples.gammas(ss-1)^2;
-    [log_p_lambda, der_log_p_y, G_log_p_y] = kcRampBoundHeightSampler(gpu_lambdaN,gpu_auxThresholdN,gpu_y,gpu_trIndex,RampSamples.gammas(ss-1),params.delta_t,G_prior);
+    [log_p_lambda, der_log_p_y, G_log_p_y] = kcRampBoundHeightSampler(gpu_lambdaN,gpu_auxThresholdN,gpu_y,gpu_trIndex,RampSamples.gammas(ss-1),timeSeries.delta_t,G_prior);
     p_mu = RampSamples.gammas(ss-1) + 1/2*g_delta^2*(G_log_p_y\der_log_p_y);
 
     p_sig = (g_delta)^2/G_log_p_y;
@@ -277,7 +277,7 @@ for ss = 2:totalSamples
     log_q_star = -1/2*log(2*pi*p_sig) - 1/(2*p_sig)*(gamma_star - p_mu)^2;
     
     G_prior_star = -(gamma_a-1)/gamma_star^2;
-    [log_p_lambda_star, der_log_p_y_star, G_log_p_y_star] = kcRampBoundHeightSampler(gpu_lambdaN,gpu_auxThresholdN,gpu_y,gpu_trIndex,gamma_star,params.delta_t,G_prior_star);
+    [log_p_lambda_star, der_log_p_y_star, G_log_p_y_star] = kcRampBoundHeightSampler(gpu_lambdaN,gpu_auxThresholdN,gpu_y,gpu_trIndex,gamma_star,timeSeries.delta_t,G_prior_star);
     p_mu_star  = gamma_star + 1/2*g_delta^2*(G_log_p_y_star\der_log_p_y_star);
     p_sig_star = (g_delta)^2/G_log_p_y_star;
     log_q = -1/2*log(2*pi*p_sig_star) - 1/(2*p_sig_star)*(RampSamples.gammas(ss-1) - p_mu_star)^2;
@@ -303,7 +303,7 @@ for ss = 2:totalSamples
     
     %% plot outputs
     if(mod(ss,50) == 0)
-        if(exist('paramPlotFigure','var') && ishandle(paramPlotFigure))
+        if(exist('paramPlotFigure','var') && ~isempty(paramPlotFigure) && ishandle(paramPlotFigure))
             set(0,'CurrentFigure',paramPlotFigure);
         else
             paramPlotFigure = figure(200);
@@ -319,9 +319,16 @@ for ss = 2:totalSamples
         subplot(4,1,1)
         hold on
         plot(1:ss,RampSamples.betas(1:ss,:));
-        title('betas');
         
         meanB = mean(RampSamples.betas(startMean:ss,:));
+        titleStr = 'betas - mean ';
+        for cc = 1:length(meanB)
+            if(cc > 1)
+                titleStr = sprintf('%s,', titleStr);
+            end
+            titleStr = sprintf('%s %1.3f', titleStr,meanB(cc));
+        end
+        title(titleStr);
         plot([1 totalSamples],[meanB;meanB],':');
         xlim([1 totalSamples]);
         hold off
@@ -329,8 +336,9 @@ for ss = 2:totalSamples
         subplot(4,1,2)
         hold on
         plot(1:ss,RampSamples.w2s(1:ss,:));
-        title('w2s');
         meanW2 = mean(RampSamples.w2s(startMean:ss));
+        titleStr = sprintf('w^2, mean = %1.4f', meanW2);
+        title(titleStr);
         plot([1 totalSamples],[meanW2 meanW2],':k');
         xlim([1 totalSamples]);
         hold off
@@ -338,8 +346,9 @@ for ss = 2:totalSamples
         subplot(4,1,3)
         hold on
         plot(1:ss,RampSamples.l_0(1:ss));
-        title('l_0');
         meanL0 = mean(RampSamples.l_0(startMean:ss));
+        titleStr = sprintf('l_0, mean = %1.2f', meanL0);
+        title(titleStr);
         plot([1 totalSamples],[meanL0 meanL0],':k');
         xlim([1 totalSamples]);
         hold off
@@ -348,16 +357,17 @@ for ss = 2:totalSamples
         subplot(4,1,4)
         hold on
         plot(1:ss,RampSamples.gammas(1:ss));
-        title(['gamma, acceptance percentage = ' num2str(acceptanceCount.g / (ss-1)*100) '%']);
         if(isfield(timeSeries,'actualPs'))
             plot([1 totalSamples],repmat(timeSeries.actualPs.gamma,2,1),'--');
         end
         meanGamma = mean(RampSamples.gammas(startMean:ss));
+        titleStr = sprintf('gamma, acceptance rate = %1.2f, mean = %2.1f', acceptanceCount.g / (ss-1), meanGamma);
+        title(titleStr);
         plot([1 totalSamples],[meanGamma meanGamma],':k');
         xlim([1 totalSamples]);
         hold off
         
-        if(exist('latentStateFigure','var') && ishandle(latentStateFigure))
+        if(exist('latentStateFigure','var') && ~isempty(latentStateFigure) && ishandle(latentStateFigure))
             set(0,'CurrentFigure',latentStateFigure);
         else
             latentStateFigure = figure(201);
