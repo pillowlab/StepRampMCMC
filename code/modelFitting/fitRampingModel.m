@@ -357,9 +357,6 @@ for ss = 2:totalSamples
         subplot(4,1,4)
         hold on
         plot(1:ss,RampSamples.gammas(1:ss));
-        if(isfield(timeSeries,'actualPs'))
-            plot([1 totalSamples],repmat(timeSeries.actualPs.gamma,2,1),'--');
-        end
         meanGamma = mean(RampSamples.gammas(startMean:ss));
         titleStr = sprintf('gamma, acceptance rate = %1.2f, mean = %2.1f', acceptanceCount.g / (ss-1), meanGamma);
         title(titleStr);
