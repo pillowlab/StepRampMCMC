@@ -67,7 +67,7 @@ DIClikelihoods = DIClikelihoods(~isnan(DIClikelihoods) & ~isinf(DIClikelihoods))
 if(~isempty(DIClikelihoods))
     expectedLikelihood = mean(DIClikelihoods);
 else
-    except('Numerical error calculating expected likelihood (DIC) in stepping model');
+    error('Numerical error calculating expected likelihood (DIC) in stepping model');
 end
 DIC = 2*l_like-4*expectedLikelihood;
 
