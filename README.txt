@@ -35,6 +35,13 @@ To compile the CUDA files into MEX files that can be executed by MATLAB, see
 WARNING: Using these CUDA tools and MATLAB's native GPU functions  in the same
          session may cause a library conflict that will crash MATLAB.
 
+Known problems setting up the CUDA/MEX files:
+    Compiler error: "mex.h" not found
+    Solution: this probably means your MATLAB directory is not set up properly
+              in code/CUDAlib/myPath.m
+    
+    Linking error: undefined reference to `__cxa_atexit'
+    Solution: append "-lm -lstdc++" to the CXXLIBS option in your mexopts.sh file
 
 Running the model comparison:
 The script exampleScript.m simulates data from one of the two models and runs
