@@ -1,5 +1,5 @@
 #include "mex.h"
-#include <cuda.h>
+#include <cuda_runtime.h>
 #include "kcDefs.h"
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     int currentDevice, newDevice;
