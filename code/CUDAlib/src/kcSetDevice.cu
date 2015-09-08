@@ -6,7 +6,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     cudaError_t ce;
     cudaGetDevice(&currentDevice);
     
-    printf("Current GPU device: %d\n",currentDevice);
+    mexPrintf("Current GPU device: %d\n",currentDevice);
     
     if(nrhs == 0) {
         ce = cudaSetDevice(KC_GPU_DEVICE);
@@ -23,6 +23,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
 
     
     cudaGetDevice(&newDevice);
-    printf("Changed to GPU device: %d\n",newDevice);
+    mexPrintf("Changed to GPU device: %d\n",newDevice);
 
 }
