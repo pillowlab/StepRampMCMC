@@ -332,9 +332,9 @@ for ss = 2:totalSamples
         plot([1 totalSamples],[meanB;meanB],':');
         xlim([1 totalSamples]);
         
-        if(isfield(timeSeries,'trueParams') && strcmpi(timeSeries.trueParams.model,'ramping'))
-            plot([1 totalSamples],repmat(timeSeries.trueParams.beta,2,1),'--')
-        end
+%         if(isfield(timeSeries,'trueParams') && strcmpi(timeSeries.trueParams.model,'ramping'))
+%             plot([1 totalSamples],repmat(timeSeries.trueParams.beta,2,1),'--')
+%         end
         hold off
         
         subplot(4,1,2)
@@ -345,9 +345,9 @@ for ss = 2:totalSamples
         title(titleStr);
         plot([1 totalSamples],[meanW2 meanW2],':k');
         xlim([1 totalSamples]);
-        if(isfield(timeSeries,'trueParams') && strcmpi(timeSeries.trueParams.model,'ramping'))
-            plot([1 totalSamples],[1.0 1.0]*timeSeries.trueParams.w2,'--')
-        end
+%         if(isfield(timeSeries,'trueParams') && strcmpi(timeSeries.trueParams.model,'ramping'))
+%             plot([1 totalSamples],[1.0 1.0]*timeSeries.trueParams.w2,'--')
+%         end
         hold off
         
         subplot(4,1,3)
@@ -358,9 +358,9 @@ for ss = 2:totalSamples
         title(titleStr);
         plot([1 totalSamples],[meanL0 meanL0],':k');
         xlim([1 totalSamples]);
-        if(isfield(timeSeries,'trueParams') && strcmpi(timeSeries.trueParams.model,'ramping'))
-            plot([1 totalSamples],[1.0 1.0]*timeSeries.trueParams.l_0,'--')
-        end
+%         if(isfield(timeSeries,'trueParams') && strcmpi(timeSeries.trueParams.model,'ramping'))
+%             plot([1 totalSamples],[1.0 1.0]*timeSeries.trueParams.l_0,'--')
+%         end
         hold off
         
         
@@ -372,9 +372,9 @@ for ss = 2:totalSamples
         title(titleStr);
         plot([1 totalSamples],[meanGamma meanGamma],':k');
         xlim([1 totalSamples]);
-        if(isfield(timeSeries,'trueParams') && strcmpi(timeSeries.trueParams.model,'ramping'))
-            plot([1 totalSamples],[1.0 1.0]*timeSeries.trueParams.gamma,'--')
-        end
+%         if(isfield(timeSeries,'trueParams') && strcmpi(timeSeries.trueParams.model,'ramping'))
+%             plot([1 totalSamples],[1.0 1.0]*timeSeries.trueParams.gamma,'--')
+%         end
         hold off
         
         if(exist('latentStateFigure','var') && ~isempty(latentStateFigure) && ishandle(latentStateFigure))
