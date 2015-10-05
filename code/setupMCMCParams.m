@@ -9,6 +9,7 @@ params.MCMC.burnIn   = 10e3; %number of samples for burn in
 params.MCMC.thinRate = 5;    %thin chain - take every X samples
                              %effective number of samples is then params.MCMC.nSamples/params.MCMC.thinRate
                              
+params.tempDataFolder = './temp/'; %folder to store latent variables of ramping model sampler if number of samples is really big
 
 %% model comparison
 
