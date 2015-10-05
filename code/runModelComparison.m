@@ -95,9 +95,9 @@ clear StepSamples
 %% Ramping model fit
 kcResetDevice(); %does this reset thing to make sure GPU is ready - might not be necessary
 
-[RampFit, RampSamples] = fitRampingModel(timeSeries,params);
+[RampFit, RampSamples,LatentDataHandler] = fitRampingModel(timeSeries,params);
 [RampModelComp.DIC, RampModelComp.l_like,RampModelComp.DIClikelihoods ] = getRampingDIC(RampSamples,params,RampFit,timeSeries);
-clearLatentsDB();
+clearLatentsDB(LatentDataHandler);
 
 DICs(2) = RampModelComp.DIC;
 

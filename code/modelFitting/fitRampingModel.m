@@ -59,7 +59,7 @@
 %
 
 
-function [ RampFit, RampSamples] = fitRampingModel(timeSeries,params)
+function [ RampFit, RampSamples, LatentDataHandler] = fitRampingModel(timeSeries,params)
 
 
 totalSamples = params.MCMC.nSamples+params.MCMC.burnIn;
@@ -73,7 +73,6 @@ NC = max(timeSeries.trCoh);
 firingRateFunc    = @(X) log(1+exp(X))*timeSeries.delta_t;
 firingRateFuncInv = @(X) log(exp(X/timeSeries.delta_t)-1);
 timeIndices = timeSeries.trialIndex(: ,1);
-timeIndices = [timeIndices;timeIndices+1;timeIndices+2]; 
 startFR = firingRateFuncInv(  max(mean( timeSeries.y(timeIndices )), 1e-20));
 
 timeIndices = timeSeries.trialIndex(timeSeries.choice == 1 ,2);
@@ -85,7 +84,7 @@ timeIndices = [timeIndices;timeIndices-1;timeIndices-2];
 endFR2 = firingRateFuncInv(  max(mean( timeSeries.y(timeIndices )), 1e-20));
 
 initialGamma = max(startFR,max(endFR1,endFR2)); %initial gamma is the max of: beginning firing rate, end trial firing rate for choice 1, or end trial firing rate for choice 2 trials 
-initialGamma = min(max(10,initialGamma),80); %keep initial gamma within some bounds
+initialGamma = min(max(10,initialGamma),160); %keep initial gamma within some bounds
 
 
 %% Sets up space for sampling --------------------------------------
@@ -101,13 +100,14 @@ acceptanceCount.g  = 0;
 acceptanceCount.sample = zeros(totalSamples,1);
 
 %special functions that save temp files to keep latent variables from taking over too much RAM
-resetLatentsDB(length(timeSeries.y), totalSamples);
-%saveLatentsDB(RampingFit.lambdas,1);
+LatentDataHandler.DataFolder = params.tempDataFolder;
+LatentDataHandler = resetLatentsDB(length(timeSeries.y), totalSamples,LatentDataHandler);
+%LatentDataHandler = saveLatentsDB(RampingFit.lambdas,1,LatentDataHandler);
 
 %% initial values
 RampSamples.betas(1,:) = 0;
 RampSamples.w2s(1,:)   = 0.005;
-RampSamples.l_0(1)     = 0.5;
+RampSamples.l_0(1)     = min(0.9, startFR/initialGamma);%0.5;
 RampSamples.gammas(1)  = initialGamma;
 
 RampSamples.rb.sig = zeros([NC+1,totalSamples]); %keeps around variables for potential Rao-Blackwell estimates over betas (I don't use these)
@@ -161,8 +161,8 @@ lambdaBlockSize = 50; %how often to pull samples back from GPU
 
 lambdaCounter  = 0;
 lambdaBlockNum = 0;
-
-gpu_lambda       = kcArrayToGPU( loadLatentsDB(1:min(lambdaBlockSize,totalSamples))); %latent variables are loaded/unloaded in blocks to the GPU
+[LB,LatentDataHandler] = loadLatentsDB(1:min(lambdaBlockSize,totalSamples),LatentDataHandler);
+gpu_lambda       = kcArrayToGPU( LB); %latent variables are loaded/unloaded in blocks to the GPU
 gpu_auxThreshold = kcArrayToGPUint( int32(RampSamples.auxThreshold(:,1:min(lambdaBlockSize,totalSamples))));
 gpu_y            = kcArrayToGPU( timeSeries.y);
 gpu_trIndex      = kcArrayToGPUint(int32(trIndex));      
@@ -188,7 +188,7 @@ for ss = 2:totalSamples
     
     lambdaCounter = mod(lambdaCounter+1,lambdaBlockSize);
     if(lambdaCounter == lambdaBlockSize-1) 
-        saveLatentsDB(kcArrayToHost(gpu_lambda),(1:lambdaBlockSize) + lambdaBlockNum*lambdaBlockSize);
+        LatentDataHandler = saveLatentsDB(kcArrayToHost(gpu_lambda),(1:lambdaBlockSize) + lambdaBlockNum*lambdaBlockSize,LatentDataHandler);
         RampSamples.auxThreshold(:,(1:lambdaBlockSize) + lambdaBlockNum*lambdaBlockSize) = kcArrayToHostint(gpu_auxThreshold);
         lambdaBlockNum = lambdaBlockNum + 1;
     end   
@@ -331,6 +331,10 @@ for ss = 2:totalSamples
         title(titleStr);
         plot([1 totalSamples],[meanB;meanB],':');
         xlim([1 totalSamples]);
+        
+        if(isfield(timeSeries,'trueParams') && strcmpi(timeSeries.trueParams.model,'ramping'))
+            plot([1 totalSamples],repmat(timeSeries.trueParams.beta,2,1),'--')
+        end
         hold off
         
         subplot(4,1,2)
@@ -341,6 +345,9 @@ for ss = 2:totalSamples
         title(titleStr);
         plot([1 totalSamples],[meanW2 meanW2],':k');
         xlim([1 totalSamples]);
+        if(isfield(timeSeries,'trueParams') && strcmpi(timeSeries.trueParams.model,'ramping'))
+            plot([1 totalSamples],[1.0 1.0]*timeSeries.trueParams.w2,'--')
+        end
         hold off
         
         subplot(4,1,3)
@@ -351,6 +358,9 @@ for ss = 2:totalSamples
         title(titleStr);
         plot([1 totalSamples],[meanL0 meanL0],':k');
         xlim([1 totalSamples]);
+        if(isfield(timeSeries,'trueParams') && strcmpi(timeSeries.trueParams.model,'ramping'))
+            plot([1 totalSamples],[1.0 1.0]*timeSeries.trueParams.l_0,'--')
+        end
         hold off
         
         
@@ -362,6 +372,9 @@ for ss = 2:totalSamples
         title(titleStr);
         plot([1 totalSamples],[meanGamma meanGamma],':k');
         xlim([1 totalSamples]);
+        if(isfield(timeSeries,'trueParams') && strcmpi(timeSeries.trueParams.model,'ramping'))
+            plot([1 totalSamples],[1.0 1.0]*timeSeries.trueParams.gamma,'--')
+        end
         hold off
         
         if(exist('latentStateFigure','var') && ~isempty(latentStateFigure) && ishandle(latentStateFigure))
@@ -386,7 +399,7 @@ for ss = 2:totalSamples
         trialsToPlot = max(1,ss-100):ss;
         gMult = repmat(RampSamples.gammas(trialsToPlot)',length(range),1);
         
-        latentBlock = loadLatentsDB(trialsToPlot);
+        [latentBlock,LatentDataHandler] = loadLatentsDB(trialsToPlot,LatentDataHandler);
         for ii = 1:length(allTrs)
             for jj = 1:length(trialsToPlot)
                 T1 = timeSeries.trialIndex(allTrs(ii),1);
@@ -415,7 +428,7 @@ thinRate = params.MCMC.thinRate;
 
 %get sampling stats for path
 try
-    RampFit.lambdas.mean   = meanLatentsDB((params.MCMC.burnIn+1):thinRate:totalSamples);
+    [RampFit.lambdas.mean,LatentDataHandler]   = meanLatentsDB((params.MCMC.burnIn+1):thinRate:totalSamples,LatentDataHandler);
 catch exc %#ok<NASGU>
     RampFit.lambdas.mean   = [];
 end

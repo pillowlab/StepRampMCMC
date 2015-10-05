@@ -1,40 +1,39 @@
-function [] = saveLatentsDB(latentBlock,indices)
+function [LatentDataHandler] = saveLatentsDB(latentBlock,indices,LatentDataHandler)
 %functions to keep a matrix of all the latent variables sampled for the ramping model without taking too much RAM
-%Warning: These functions use global variables (not a smart choice)
-%
-% saves a block of latents to the drive (so that another block can be brought into memory)
+%Information about what is stored/loaded is all in LatentDataHandler! Keep this object around.
 
-global DataRowLength DataRowsPerBlock DataBlockNumber DataBlock DataChanged DataValidRows DataFolder;
 
 %checks data setup
-if(DataRowLength <= 0)
-    resetLatentsDB(size(latentBlock,1));
-elseif(nargin > 1 && DataRowLength ~= size(latentBlock,1))
+if(LatentDataHandler.DataRowLength <= 0)
+    LatentDataHandler = resetLatentsDB(size(latentBlock,1),LatentDataHandler);
+elseif(nargin > 1 && LatentDataHandler.DataRowLength ~= size(latentBlock,1))
     error('Data size mismatch.');
 end
 
 if(nargin == 0)
-    save([DataFolder '/dataBlock' num2str(DataBlockNumber) '.mat'],'-v7.3','DataBlock','DataValidRows');
-    DataChanged = 0;
+    DataBlock     = LatentDataHandler.DataBlock; %#ok<NASGU>
+    DataValidRows = LatentDataHandler.DataValidRows; %#ok<NASGU>
+    save([LatentDataHandler.DataFolder '/dataBlock' num2str(LatentDataHandler.DataBlockNumber) '.mat'],'-v7.3','DataBlock','DataValidRows');
+    LatentDataHandler.DataChanged = 0;
     return;
 end
 
 
 % get block number for each index
-blockIdx = floor((indices-1)/DataRowsPerBlock) + 1;
+blockIdx = floor((indices-1)/LatentDataHandler.DataRowsPerBlock) + 1;
 
 % save each block, starting with any rows in current block
 blockIdxs = unique(blockIdx);
 
-blockOrder = [blockIdxs(blockIdxs == DataBlockNumber) blockIdxs(blockIdxs ~= DataBlockNumber)];
+blockOrder = [blockIdxs(blockIdxs == LatentDataHandler.DataBlockNumber) blockIdxs(blockIdxs ~= LatentDataHandler.DataBlockNumber)];
 for ii = blockOrder
     
-    loadLatentFileDB(ii);
+    LatentDataHandler = loadLatentFileDB(ii,LatentDataHandler);
     indicesInBlock = find(blockIdx == ii);
-    offset = (ii-1)*DataRowsPerBlock;
+    offset = (ii-1)*LatentDataHandler.DataRowsPerBlock;
         
-    DataBlock(:,indices(indicesInBlock)-offset) = latentBlock(:,indicesInBlock);
-    DataValidRows(indices(indicesInBlock)-offset) = 1;
+    LatentDataHandler.DataBlock(:,indices(indicesInBlock)-offset) = latentBlock(:,indicesInBlock);
+    LatentDataHandler.DataValidRows(indices(indicesInBlock)-offset) = 1;
 
-    DataChanged = 1;
+    LatentDataHandler.DataChanged = 1;
 end

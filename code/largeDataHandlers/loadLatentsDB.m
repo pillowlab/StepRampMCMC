@@ -1,40 +1,39 @@
-function [latentBlock] = loadLatentsDB(indices)
+function [latentBlock,LatentDataHandler] = loadLatentsDB(indices,LatentDataHandler)
 %functions to keep a matrix of all the latent variables sampled for the ramping model without taking too much RAM
-%Warning: These functions use global variables (not a smart choice)
+%Information about what is stored/loaded is all in LatentDataHandler! Keep this object around.
 %
 % loads up one block of latents
-global DataRowLength DataRowsPerBlock DataBlockNumber DataBlock DataValidRows;
 
 %checks data setup
-if(DataBlockNumber <= 0)
+if(LatentDataHandler.DataBlockNumber <= 0)
     error('Invalid data block');
 end
-if(DataRowLength <= 0)
+if(LatentDataHandler.DataRowLength <= 0)
     error('Data storage not initialized.');
 end
 
-latentBlock = zeros(DataRowLength,length(indices));
+latentBlock = zeros(LatentDataHandler.DataRowLength,length(indices));
 
 
 % get block number for each index
-blockIdx = floor((indices-1)/DataRowsPerBlock) + 1;
+blockIdx = floor((indices-1)/LatentDataHandler.DataRowsPerBlock) + 1;
 
 % save each block, starting with any rows in current block
 blockIdxs = unique(blockIdx);
 
-blockOrder = [blockIdxs(blockIdxs == DataBlockNumber) blockIdxs(blockIdxs ~= DataBlockNumber)];
+blockOrder = [blockIdxs(blockIdxs == LatentDataHandler.DataBlockNumber) blockIdxs(blockIdxs ~= LatentDataHandler.DataBlockNumber)];
 for ii = blockOrder
     
-    loadLatentFileDB(ii);
+    LatentDataHandler = loadLatentFileDB(ii,LatentDataHandler);
     
     indicesInBlock = find(blockIdx == ii);
-    offset = (ii-1)*DataRowsPerBlock;
+    offset = (ii-1)*LatentDataHandler.DataRowsPerBlock;
     
-    if(max(indices(indicesInBlock)-offset) > size(DataBlock,2))
+    if(max(indices(indicesInBlock)-offset) > size(LatentDataHandler.DataBlock,2))
         error('Accessing data outside pre-initialized block');
     else
-        latentBlock(:,indicesInBlock) = DataBlock(:,indices(indicesInBlock)-offset);
-        if(sum(DataValidRows(indices(indicesInBlock)-offset) < 1) > 0)
+        latentBlock(:,indicesInBlock) = LatentDataHandler.DataBlock(:,indices(indicesInBlock)-offset);
+        if(sum(LatentDataHandler.DataValidRows(indices(indicesInBlock)-offset) < 1) > 0)
             warning('Loading data from unitialized array index');
         end
     end

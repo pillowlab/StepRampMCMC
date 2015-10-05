@@ -1,37 +1,40 @@
-function [] = loadLatentFileDB(blockNum)
+function [LatentDataHandler] = loadLatentFileDB(blockNum,LatentDataHandler)
 %functions to keep a matrix of all the latent variables sampled for the ramping model without taking too much RAM
-%Warning: These functions use global variables (not a smart choice)
+%Information about what is stored/loaded is all in LatentDataHandler! Keep this object around.
 %
 % loads up one block of latents from a file
-global DataRowLength DataRowsPerBlock DataBlockNumber DataBlock DataChanged DataValidRows DataFolder;
 
 %checks data setup
 if(blockNum <= 0)
     error('Invalid data block');
 end
-if(DataRowLength <= 0)
+if(LatentDataHandler.DataRowLength <= 0)
     error('Data storage not initialized.');
 end
 
-if(blockNum == DataBlockNumber)
+if(blockNum == LatentDataHandler.DataBlockNumber)
     %no need to reload current block
     return;
 else
-    if(DataChanged > 0)
+    if(LatentDataHandler.DataChanged > 0)
         %save current block
-        save([DataFolder '/dataBlock' num2str(DataBlockNumber) '.mat'],'-v7.3','DataBlock','DataValidRows');
+        DataBlock     = LatentDataHandler.DataBlock; %#ok<NASGU>
+        DataValidRows = LatentDataHandler.DataValidRows; %#ok<NASGU>
+        save([LatentDataHandler.DataFolder '/dataBlock' num2str(LatentDataHandler.DataBlockNumber) '.mat'],'-v7.3','DataBlock','DataValidRows');
     end
 
-    DataBlockNumber = blockNum;
-    if(~exist([DataFolder '/dataBlock' num2str(blockNum) '.mat'],'file'))
+    LatentDataHandler.DataBlockNumber = blockNum;
+    if(~exist([LatentDataHandler.DataFolder '/dataBlock' num2str(blockNum) '.mat'],'file'))
         %create new block
-        DataBlock = zeros(DataRowLength, DataRowsPerBlock);
-        DataValidRows = zeros(DataRowsPerBlock,1);
-        DataChanged = 1;
+        LatentDataHandler.DataBlock = zeros(LatentDataHandler.DataRowLength, LatentDataHandler.DataRowsPerBlock);
+        LatentDataHandler.DataValidRows = zeros(LatentDataHandler.DataRowsPerBlock,1);
+        LatentDataHandler.DataChanged = 1;
     else
         %load old block
-        load([DataFolder '/dataBlock' num2str(DataBlockNumber) '.mat'],'DataBlock','DataValidRows');
-        DataChanged = 0;
+        DB = load([LatentDataHandler.DataFolder '/dataBlock' num2str(LatentDataHandler.DataBlockNumber) '.mat'],'DataBlock','DataValidRows');
+        LatentDataHandler.DataChanged = 0;
+        LatentDataHandler.DataBlock     = DB.DataBlock; 
+        LatentDataHandler.DataValidRows = DB.DataValidRows;
     end
 
 end

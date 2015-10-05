@@ -1,24 +1,26 @@
-function [] = resetLatentsDB(rowLength,rowsToInitialize)
+function [LatentDataHandler] = resetLatentsDB(rowLength,rowsToInitialize,LatentDataHandler)
 %functions to keep a matrix of all the latent variables sampled for the ramping model without taking too much RAM
-%Warning: These functions use global variables (not a smart choice)
+%Information about what is stored/loaded is all in LatentDataHandler! Keep this object around.
 %
 % resets the blocks of latents
 
-global DataRowLength DataRowsPerBlock DataBlockNumber DataBlock DataChanged DataValidRows DataFolder;
-
-if(isempty(DataFolder))
-    DataFolder = './temp/';
+if(nargin < 3)
+    LatentDataHandler = struct();
 end
 
-if(~exist(DataFolder,'file'))
-    mkdir(DataFolder);
+if(~isfield(LatentDataHandler,'DataFolder') || isempty(LatentDataHandler.DataFolder))
+    LatentDataHandler.DataFolder = './temp/';
 end
 
-fileList = dir(DataFolder);
+if(~exist(LatentDataHandler.DataFolder,'file'))
+    mkdir(LatentDataHandler.DataFolder);
+end
+
+fileList = dir(LatentDataHandler.DataFolder);
 
 for ii = 1:length(fileList)
     if(~fileList(ii).isdir)
-        delete([ DataFolder '/' fileList(ii).name]);
+        delete([ LatentDataHandler.DataFolder '/' fileList(ii).name]);
     end
 end
 
@@ -36,50 +38,54 @@ if(nargin > 0)
         end
     end
     
-    DataRowLength    = rowLength;
-    DataRowsPerBlock = max(1,floor(maxSizePerBlock/(rowLength*8)));
+    LatentDataHandler.DataRowLength    = rowLength;
+    LatentDataHandler.DataRowsPerBlock = max(1,floor(maxSizePerBlock/(rowLength*8)));
     
-    DataValidRows    = zeros(DataRowsPerBlock,1);
-    DataBlockNumber    = 1;
+    LatentDataHandler.DataValidRows    = zeros(LatentDataHandler.DataRowsPerBlock,1);
+    LatentDataHandler.DataBlockNumber    = 1;
     
     
     dataBlockInitialized = false;
     if(nargin >= 2 && rowsToInitialize >= 1)
-        nBlocks = ceil(rowsToInitialize/DataRowsPerBlock);
+        nBlocks = ceil(rowsToInitialize/LatentDataHandler.DataRowsPerBlock);
         
         for ii = nBlocks:-1:1
-            DataValidRows = zeros(DataRowsPerBlock,1);
-            trNums = (1:DataRowsPerBlock) + (ii-1)*DataRowsPerBlock;
-            DataValidRows(trNums <= rowsToInitialize) = 1;
+            LatentDataHandler.DataValidRows = zeros(LatentDataHandler.DataRowsPerBlock,1);
+            trNums = (1:LatentDataHandler.DataRowsPerBlock) + (ii-1)*LatentDataHandler.DataRowsPerBlock;
+            LatentDataHandler.DataValidRows(trNums <= rowsToInitialize) = 1;
             
-            if(sum(trNums <= rowsToInitialize) < DataRowsPerBlock)
-                DataBlock = zeros(DataRowLength, sum(trNums <= rowsToInitialize));
+            if(sum(trNums <= rowsToInitialize) < LatentDataHandler.DataRowsPerBlock)
+                LatentDataHandler.DataBlock = zeros(LatentDataHandler.DataRowLength, sum(trNums <= rowsToInitialize));
                 if(ii > 1)
-                    save([DataFolder '/dataBlock' num2str(ii) '.mat'],'DataBlock','DataValidRows','-v7.3');
-                    if(size(DataBlock,2) < DataRowsPerBlock)
-                        DataBlock          = zeros(DataRowLength, DataRowsPerBlock);
+                    DataBlock     = LatentDataHandler.DataBlock; %#ok<NASGU>
+                    DataValidRows = LatentDataHandler.DataValidRows; %#ok<NASGU>
+                    save([LatentDataHandler.DataFolder '/dataBlock' num2str(ii) '.mat'],'DataBlock','DataValidRows','-v7.3');
+                    if(size(LatentDataHandler.DataBlock,2) < LatentDataHandler.DataRowsPerBlock)
+                        LatentDataHandler.DataBlock          = zeros(LatentDataHandler.DataRowLength, LatentDataHandler.DataRowsPerBlock);
                         dataBlockInitialized = true;
                     end
                 end
             elseif(ii > 1)
                 if(~dataBlockInitialized)
-                    DataBlock          = zeros(DataRowLength, DataRowsPerBlock);
+                    LatentDataHandler.DataBlock          = zeros(LatentDataHandler.DataRowLength, LatentDataHandler.DataRowsPerBlock);
                     dataBlockInitialized = true;
                 end
-                save([DataFolder '/dataBlock' num2str(ii) '.mat'],'DataBlock','DataValidRows','-v7.3');
+                DataBlock     = LatentDataHandler.DataBlock; %#ok<NASGU>
+                DataValidRows = LatentDataHandler.DataValidRows; %#ok<NASGU>
+                save([LatentDataHandler.DataFolder '/dataBlock' num2str(ii) '.mat'],'DataBlock','DataValidRows','-v7.3');
             end
            
             
         end
     else
-        DataBlock          = zeros(DataRowLength, DataRowsPerBlock);
-        dataBlockInitialized = true;
+        LatentDataHandler.DataBlock          = zeros(LatentDataHandler.DataRowLength, LatentDataHandler.DataRowsPerBlock);
+        %dataBlockInitialized = true;
     end
-    DataChanged        = 1;
+    LatentDataHandler.DataChanged        = 1;
 else
-    DataRowLength    = 0;
-    DataRowsPerBlock = 0;
-    DataBlock          = [];
-    DataBlockNumber    = -1;
-    DataChanged        = 0;
+    LatentDataHandler.DataRowLength    = 0;
+    LatentDataHandler.DataRowsPerBlock = 0;
+    LatentDataHandler.DataBlock          = [];
+    LatentDataHandler.DataBlockNumber    = -1;
+    LatentDataHandler.DataChanged        = 0;
 end
