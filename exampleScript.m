@@ -22,6 +22,8 @@ timeSeries = simulateSteppingModel();
 
 %% gets parameters
 params = setupMCMCParams();
+params.tempDataFolder = './temp/'; %temporary folder to store samples of the latent states of the ramping model
+                                   %if number of samples/trials is large (saves on RAM)
 
 %% set files for output
 resultsFiles.ramp = './Results/RampFit_Sim.mat';
