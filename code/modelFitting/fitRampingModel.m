@@ -83,8 +83,8 @@ timeIndices = timeSeries.trialIndex(timeSeries.choice == 2 ,2);
 timeIndices = [timeIndices;timeIndices-1;timeIndices-2]; 
 endFR2 = firingRateFuncInv(  max(mean( timeSeries.y(timeIndices )), 1e-20));
 
-initialGamma = max(startFR,max(endFR1,endFR2)); %initial gamma is the max of: beginning firing rate, end trial firing rate for choice 1, or end trial firing rate for choice 2 trials 
-initialGamma = min(max(10,initialGamma),160); %keep initial gamma within some bounds
+initialGamma = max([10, startFR,endFR1,endFR2]); %initial gamma is the max of: beginning firing rate, end trial firing rate for choice 1, or end trial firing rate for choice 2 trials 
+initialGamma = min(initialGamma,160); %keep initial gamma within some bounds
 
 
 %% Sets up space for sampling --------------------------------------
