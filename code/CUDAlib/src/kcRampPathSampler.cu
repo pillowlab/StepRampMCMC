@@ -1,4 +1,4 @@
-//#include "cuda/cuda.h"
+
 #include <math.h>
 
 #include <stdlib.h>
@@ -16,7 +16,10 @@
 
 #include "mex.h"
 
-#include "kcDefs.h"
+#include "kcDefs.h" //see for info on anything starting with KC_
+                    //KC_FP_TYPE can be assumed to mean "double", but originally
+                    //this definition could also work with "float" for faster speed.
+                    //float compatability is no longer supported in this function.
 #include "kcArrayFunctions.h"
 
 #define MAX_P 1e25

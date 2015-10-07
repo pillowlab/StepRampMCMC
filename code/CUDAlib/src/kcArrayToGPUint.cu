@@ -5,7 +5,7 @@
 
 #include <helper_cuda.h>
 
-#include "kcDefs.h"
+#include "kcDefs.h" //see for info on anything starting with KC_
 #include "kcArrayFunctions.h"
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {

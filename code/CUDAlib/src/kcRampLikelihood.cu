@@ -1,4 +1,3 @@
-//#include "cuda/cuda.h"
 #include <math.h>
 
 #include <stdlib.h>
@@ -16,7 +15,7 @@
 
 #include "mex.h"
 
-#include "kcDefs.h"
+#include "kcDefs.h" //see for info on anything starting with KC_
 #include "kcArrayFunctions.h"
 
 //poison log likelihood for one observation

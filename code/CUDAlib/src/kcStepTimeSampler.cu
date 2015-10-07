@@ -15,7 +15,7 @@
 
 #include "mex.h"
 
-#include "kcDefs.h"
+#include "kcDefs.h" //see for info on anything starting with KC_
 #include "kcArrayFunctions.h"
 
 /*

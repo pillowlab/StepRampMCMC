@@ -1,3 +1,5 @@
+//functions for handling a MATLAB structure that holds CUDA array information.
+//Warning: This h file inelegantly holds quite a few functions.
 #include <cuda.h>
 #include "mex.h"
 #include "matrix.h"
