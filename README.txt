@@ -27,6 +27,12 @@ Compiling the CUDA tools on OSX works similarly to the compilation on Ubuntu.
 If running this code on Windows is absolutely necessary, the author may provide
 limited support in getting the GPU code functional on windows.
 
+To complete the CUDA setup, you must add the following lines to the end of your
+.bashrc file in your home directory:
+    export PATH=/usr/local/cuda-7.0/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/cuda-7.0/lib64:$LD_LIBRARY_PATH
+(make sure the directories match your CUDA install directory!)
+
 To compile the CUDA files into MEX files that can be executed by MATLAB, see
     code/CUDAlib/myPaths.m (tells the compiler where to find your MATLAB and
                             CUDA installations)
@@ -61,4 +67,6 @@ parts.
 
 All settings, including how many MCMC samples to get, are given in
     setupMCMCParams.m
+
+
 
