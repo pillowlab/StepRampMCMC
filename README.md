@@ -55,7 +55,7 @@ MATLAB, see
 
 -    `code/CUDAlib/myPaths.m`  - tells the compiler where to find your MATLAB and
                             CUDA installations
--    `code/CUDAlib/compileAllMexFiles.m`  - runs the compile/link scripts)
+-    `code/CUDAlib/compileAllMexFiles.m`  - runs the compile/link scripts
     
 **WARNING**: Using these CUDA tools and MATLAB's native GPU functions  in the same
          session may cause a library conflict that will crash MATLAB.
