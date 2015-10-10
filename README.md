@@ -5,8 +5,8 @@ StepRampMCMC
 Matlab+CUDA code to run the stepping/ramping model comparison described in
 [Latimer et al, *Science*  2015](http://pillowlab.princeton.edu/pubs/abs_Latimer15_Sci.html).
 
-This code takes in spike data observed over many trials, fits both a "stepping"
-and "ramping" model to the data, and compares the model fits with the Deviance
+This code takes in spike data observed over many trials, fits "stepping"
+and "ramping" models to the data, and compares the model fits with the Deviance
 Information Criterion (DIC).
 
 *********************
