@@ -1,15 +1,31 @@
 function [ projectHome, CUDAdirectory, MATLABdirectory ] = myPaths(  )
-%MYPATHS this function contains path information to the CUDA and MATLAB folders.
+%MYPATHS this script contains path information to the CUDA and MATLAB folders.
 %   This is used for compiling CUDA files into mex files.
 
-%aboslute path to the base directory for this project
-projectHome =  '/home/latimerk/gitCode/LIPStateSpaceRelease/';
 
-%directory of the CUDA installation
-CUDAdirectory   = '/usr/local/cuda-7.0/';
+%% 1. Set absolute path to the base directory for this project
+projectHome = which('myPaths.m');
+projectHome = projectHome(1:end-23);
 
-%directory of the MATLAB installation
-MATLABdirectory = '/usr/local/MATLAB/R2013a/';
-
+% check if directory exists
+if exist(projectHome)~=7
+  warning(['ERROR: projectHome directory does not exist: %s\n----\n', ...
+      'Please fix by editing myPaths.m\n '],projectHome);
 end
 
+% IF this fails for some reason, specify absolute path to directory containing this function, e.g.:
+% projectHome =  '/home/USERNAME/gitCode/StepRampMCMC/';
+
+%% 2. Set absolute path for directory where CUDA installation lives:
+CUDAdirectory   = '/usr/local/cuda-7.0/';
+
+% check if directory exists
+if exist(CUDAdirectory)~=7
+  warning(['ERROR: CUDAdirectory directory does not exist: %s\n----\n', ...
+      'Please fix by editing myPaths.m\n '],CUDAdirectory);
+end
+
+
+%% 3. Directory of the MATLAB installation. 
+MATLABdirectory = matlabroot;  % this *shouldn't* need adjusting
+MATLABdirectory = [MATLABdirectory, '/'];
