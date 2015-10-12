@@ -51,7 +51,7 @@ To complete the CUDA setup, you must include the following lines to the end of y
 (make sure the directories match your CUDA install directory!)
 
 To compile the CUDA files into MEX files that can be executed by
-MATLAB, `cd` into the directory:
+MATLAB, `cd` into the directory `code/CUDAlib/` and then:
 
 1.   Execute `myPaths;`  
  This tells the compiler where to find your MATLAB and CUDA
@@ -59,7 +59,7 @@ MATLAB, `cd` into the directory:
  relevant path name so it points to the correct directory.
  
 2.   Execute `compileAllMexFiles;`
-   This should runs the compile/link all scripts. 
+   This should compile/link all scripts. 
     
 **WARNING**: Using these CUDA tools and MATLAB's native GPU functions  in the same
          session may cause a library conflict that will crash MATLAB.

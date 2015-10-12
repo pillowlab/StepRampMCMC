@@ -1,5 +1,5 @@
 function [ projectHome, CUDAdirectory, MATLABdirectory ] = myPaths(  )
-%MYPATHS this script contains path information to the CUDA and MATLAB folders.
+%MYPATHS this function contains path information to the CUDA and MATLAB folders.
 %   This is used for compiling CUDA files into mex files.
 
 
