@@ -107,7 +107,7 @@ LatentDataHandler = resetLatentsDB(length(timeSeries.y), totalSamples,LatentData
 %% initial values
 RampSamples.betas(1,:) = 0;
 RampSamples.w2s(1,:)   = 0.005;
-RampSamples.l_0(1)     = min(0.9, startFR/initialGamma);%0.5;
+RampSamples.l_0(1)     = max(0.1,min(0.9, startFR/initialGamma));%0.5;
 RampSamples.gammas(1)  = initialGamma;
 
 RampSamples.rb.sig = zeros([NC+1,totalSamples]); %keeps around variables for potential Rao-Blackwell estimates over betas (I don't use these)
@@ -225,8 +225,11 @@ for ss = 2:totalSamples
     RampSamples.l_0(ss) = driftSample(end);
     
     if(sum(isnan( driftSample))>0)
-        error('Unknown problem with sampling drift rates.');
+        RampSamples.l_0(ss)     = RampSamples.l_0(ss-1);
+        RampSamples.betas(ss,:) = RampSamples.betas(ss-1,:);
+        warning('Unknown problem with sampling drift rates (most likely numerical error). Keeping previous sample.');
     end
+     
     
     %% Sample w^2
     [w1_c, w2_c] = kcRampVarianceSampler(gpu_lambdaN,gpu_auxThresholdN,gpu_trIndex,gpu_trBetaIndex,RampSamples.betas(ss,:),RampSamples.l_0(ss));
@@ -235,8 +238,9 @@ for ss = 2:totalSamples
     
     RampSamples.w2s(ss) = 1./gamrnd(params.rampPrior.w2_shape + w2s_1,1./(params.rampPrior.w2_scale + w2s_2)); %gamrnd does not use (alpha,beta) param, uses the one with theta on the wikipedia page for gamma dist
     if(isnan( RampSamples.w2s(ss) ) )
-        error('Unknown problem with sampling drift variance.');
-    end
+        RampSamples.w2s(ss)     = RampSamples.w2s(ss-1);
+        warning('Unknown problem with sampling drift variance (most likely numerical error). Keeping previous sample.');
+    end    
     
     
     %% Step size setup for MALA on parameters
