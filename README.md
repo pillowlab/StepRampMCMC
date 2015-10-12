@@ -58,7 +58,7 @@ MATLAB, `cd` into the directory `code/CUDAlib/` and then:
  installations. If it reports an error, open `myPaths.m` and edit the
  relevant path name so it points to the correct directory.
  
-2.   Execute `compileAllMexFiles;`
+2.   Execute `compileAllMexFiles;`  
    This should compile/link all scripts. 
     
 **WARNING**: Using these CUDA tools and MATLAB's native GPU functions  in the same
