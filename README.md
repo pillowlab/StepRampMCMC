@@ -55,7 +55,7 @@ To complete the CUDA setup, you must include the following lines to the end of y
 To compile the CUDA files into MEX files that can be executed by
 MATLAB, `cd` into the directory `code/CUDAlib/` and then:
 
-1.   Edit and execute `myPaths;`  
+1.   Edit `myPath.m` and execute `myPaths;`  
  This tells the compiler where to find your MATLAB and CUDA
  installations. The MATLAB directory should be detected automatically. However, you may need to set the correct CUDA path. 
  If executing this function reports an error, open `myPaths.m` and edit the
