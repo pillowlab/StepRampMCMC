@@ -15,7 +15,7 @@ Information Criterion (DIC).
 
 - MATLAB version R2013a (or above) with statistics toolbox
 - Nvidia CUDA toolkit (version 7.0 recommended)
-- Nvidia graphics card (compute version 1.3 or above.  At least 1GB of
+- Nvidia graphics card (compute version 1.3 or above. See the list provided by Nvidia at [https://developer.nvidia.com/cuda-gpus]  At least 1GB of
 graphics memory is recommended. Apologies to AMD users.)
 
 
@@ -42,6 +42,8 @@ limited support in getting the GPU code functional on windows.
 Setup / Installation
 ====
 
+1. Install the CUDA toolkit from [https://developer.nvidia.com/cuda-downloads]
+
 To complete the CUDA setup, you must include the following lines to the end of your
 `.bashrc` file in your home directory:
 
@@ -53,12 +55,13 @@ To complete the CUDA setup, you must include the following lines to the end of y
 To compile the CUDA files into MEX files that can be executed by
 MATLAB, `cd` into the directory `code/CUDAlib/` and then:
 
-1.   Execute `myPaths;`  
+2.   Edit and execute `myPaths;`  
  This tells the compiler where to find your MATLAB and CUDA
- installations. If it reports an error, open `myPaths.m` and edit the
+ installations. The MATLAB directory should be detected automatically. However, you may need to set the correct CUDA path. 
+ If executing this function reports an error, open `myPaths.m` and edit the
  relevant path name so it points to the correct directory.
  
-2.   Execute `compileAllMexFiles;`  
+3.   Execute `compileAllMexFiles;`  
    This should compile/link all scripts. 
     
 **WARNING**: Using these CUDA tools and MATLAB's native GPU functions  in the same
@@ -73,6 +76,14 @@ MATLAB, `cd` into the directory `code/CUDAlib/` and then:
 -    ``Linking error: undefined reference to `__cxa_atexit'``  
       **Solution**: append `-lm -lstdc++` to the `CXXLIBS` option in your `mexopts.sh` file
 
+-    MATLAB's mex linker may report a gcc version warning such as 
+     `Warning: You are using gcc version "4.9.1".  The version
+     currently supported with MEX is "4.4.x".` 
+     **Solution**: We have tested that this warning can be ignored in MATLAB R2013a.
+
+-    Compiler gives a warning about a CUDA header file such as
+     ``/usr/local/cuda/samples/common/inc/exception.h``
+     **Solution**: This problem is associated with older versions of CUDA and can be ignored. Upgrading to version 7.0 eliminates this warning.
 
 Running the Model Comparison
 ===================

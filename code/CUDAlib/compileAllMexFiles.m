@@ -19,9 +19,16 @@ fNames = compileCUDAmex();
 
 for ii = 1:length(fNames);
     fprintf('Compiling file %s (%d / %d)...\n',fNames{ii},ii,length(fNames));
-    compileCUDAmex(fNames{ii});
+    objFile = compileCUDAmex(fNames{ii});
+
+    if(~exist(objFile,'file'))
+      error(sprintf('No object file found (%s). Cannot link mex file.',objFile));
+    end
     fprintf('Linking file %s (%d / %d)...\n',fNames{ii},ii,length(fNames));
-    linkCUDAmex(fNames{ii});
+    mexFile = linkCUDAmex(fNames{ii});
+    if(~exist(mexFile,'file'))
+      error(sprintf('No mex file created (%s).',mexFile));
+    end
 end
 
-fprintf('Finished compiling and linking. Check the output for any errors.\n');
+fprintf('Finished compiling and linking. All mex files exist. If you stumble upon any CUDA/MEX errors, check through the output for any errors that were missed by this script.\n');

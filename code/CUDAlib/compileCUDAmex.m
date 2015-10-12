@@ -16,9 +16,8 @@ if(nargin > 0)
     end
 
     compileCUDAlibMex(fName);
-    display('NOTE: if receveing warning about /usr/local/cuda-7.0/samples/common/inc/exception.h')
-    display(' everything is fine. There is something in a CUDA lib that the compiler isn''t happy about, but it will run anyway');
-
+        
+    fName = [objDir '/'  fName '.o'];
 else
     %if no argument, just outputs the list of CUDA files used in the project
     fName = {};

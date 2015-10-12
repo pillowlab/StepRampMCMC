@@ -5,12 +5,12 @@ function [ projectHome, CUDAdirectory, MATLABdirectory ] = myPaths(  )
 
 %% 1. Set absolute path to the base directory for this project
 projectHome = which('myPaths.m');
-projectHome = projectHome(1:end-23);
+projectHome = projectHome(1:end-22);
 
 % check if directory exists
-if exist(projectHome)~=7
-  warning(['ERROR: projectHome directory does not exist: %s\n----\n', ...
-      'Please fix by editing myPaths.m\n '],projectHome);
+if ~exist(projectHome,'file') || ~isdir(projectHome)
+    warning(['ERROR: projectHome directory does not exist: %s\n----\n', ...
+             'Please fix by editing myPaths.m\n '],projectHome);
 end
 
 % IF this fails for some reason, specify absolute path to directory containing this function, e.g.:
@@ -20,9 +20,9 @@ end
 CUDAdirectory   = '/usr/local/cuda-7.0/';
 
 % check if directory exists
-if exist(CUDAdirectory)~=7
-  warning(['ERROR: CUDAdirectory directory does not exist: %s\n----\n', ...
-      'Please fix by editing myPaths.m\n '],CUDAdirectory);
+if ~exist(CUDAdirectory,'file') || ~isdir(CUDAdirectory)
+    warning(['ERROR: CUDAdirectory directory does not exist: %s\n----\n', ...
+             'Please fix by editing myPaths.m\n '],CUDAdirectory);
 end
 
 

@@ -14,6 +14,8 @@ if(nargin > 0)
         addpath(mexDir);
     end
     linkCUDAlibMex(fName);
+
+    fName = [mexDir '/' fName '.' mexext];
 else
     fName = compileCUDAmex();
 end
