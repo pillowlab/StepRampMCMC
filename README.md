@@ -15,7 +15,7 @@ Information Criterion (DIC).
 
 - MATLAB version R2013a (or above) with statistics toolbox
 - Nvidia CUDA toolkit (version 7.0 recommended)
-- Nvidia graphics card (compute version 1.3 or above. See the list provided by Nvidia at [https://developer.nvidia.com/cuda-gpus]  At least 1GB of
+- Nvidia graphics card (compute version 1.3 or above. See the list provided by Nvidia at https://developer.nvidia.com/cuda-gpus  At least 1GB of
 graphics memory is recommended. Apologies to AMD users.)
 
 
@@ -42,7 +42,7 @@ limited support in getting the GPU code functional on windows.
 Setup / Installation
 ====
 
-1. Install the CUDA toolkit from [https://developer.nvidia.com/cuda-downloads]
+Make sure you have installed the CUDA toolkit from https://developer.nvidia.com/cuda-downloads
 
 To complete the CUDA setup, you must include the following lines to the end of your
 `.bashrc` file in your home directory:
@@ -55,19 +55,19 @@ To complete the CUDA setup, you must include the following lines to the end of y
 To compile the CUDA files into MEX files that can be executed by
 MATLAB, `cd` into the directory `code/CUDAlib/` and then:
 
-2.   Edit and execute `myPaths;`  
+1.   Edit and execute `myPaths;`  
  This tells the compiler where to find your MATLAB and CUDA
  installations. The MATLAB directory should be detected automatically. However, you may need to set the correct CUDA path. 
  If executing this function reports an error, open `myPaths.m` and edit the
  relevant path name so it points to the correct directory.
  
-3.   Execute `compileAllMexFiles;`  
+2.   Execute `compileAllMexFiles;`  
    This should compile/link all scripts. 
     
 **WARNING**: Using these CUDA tools and MATLAB's native GPU functions  in the same
          session may cause a library conflict that will crash MATLAB.
 
-### Known problems setting up the CUDA/MEX files:
+### Known problems and warning messages setting up the CUDA/MEX files:
 
 -    `Compiler error: "mex.h" not found`  
      **Solution**: this probably means your MATLAB directory is not set up properly
