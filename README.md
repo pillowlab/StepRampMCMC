@@ -25,7 +25,7 @@ graphics memory is recommended. Apologies to AMD users.)
 -   16+GB RAM
 
 
-Implementation Notes
+Release Notes
 ===============
 
 The tools provided run in MATLAB and use Nvidia's CUDA toolkit to accelerate
@@ -39,7 +39,7 @@ Compiling the CUDA tools on OSX works similarly to the compilation on Ubuntu.
 If running this code on Windows is absolutely necessary, the author may provide
 limited support in getting the GPU code functional on windows.
 
-Setup
+Setup / Installation
 ====
 
 To complete the CUDA setup, you must include the following lines to the end of your
@@ -51,11 +51,15 @@ To complete the CUDA setup, you must include the following lines to the end of y
 (make sure the directories match your CUDA install directory!)
 
 To compile the CUDA files into MEX files that can be executed by
-MATLAB, see
+MATLAB, `cd` into the directory:
 
--    `code/CUDAlib/myPaths.m`  - tells the compiler where to find your MATLAB and
-                            CUDA installations
--    `code/CUDAlib/compileAllMexFiles.m`  - runs the compile/link scripts
+1.   Execute `myPaths;`  
+ This tells the compiler where to find your MATLAB and CUDA
+ installations. If it reports an error, open `myPaths.m` and edit the
+ relevant path name so it points to the correct directory.
+ 
+2.   Execute `compileAllMexFiles;`
+   This should runs the compile/link all scripts. 
     
 **WARNING**: Using these CUDA tools and MATLAB's native GPU functions  in the same
          session may cause a library conflict that will crash MATLAB.
