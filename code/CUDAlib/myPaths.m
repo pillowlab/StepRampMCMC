@@ -8,7 +8,7 @@ projectHome = which('myPaths.m');
 projectHome = projectHome(1:end-22);
 
 % check if directory exists
-if ~exist(projectHome,'file') || ~isdir(projectHome)
+if ~isdir(projectHome)
     warning(['ERROR: projectHome directory does not exist: %s\n----\n', ...
              'Please fix by editing myPaths.m\n '],projectHome);
 end
@@ -20,7 +20,7 @@ end
 CUDAdirectory   = '/usr/local/cuda-7.0/';
 
 % check if directory exists
-if ~exist(CUDAdirectory,'file') || ~isdir(CUDAdirectory)
+if ~isdir(CUDAdirectory)
     warning(['ERROR: CUDAdirectory directory does not exist: %s\n----\n', ...
              'Please fix by editing myPaths.m\n '],CUDAdirectory);
 end
