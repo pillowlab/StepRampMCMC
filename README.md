@@ -43,6 +43,7 @@ Setup / Installation
 ====
 
 Make sure you have installed the CUDA toolkit from https://developer.nvidia.com/cuda-downloads
+We recommend installing the CUDA samples to the 'samples' folder of your CUDA install directory.
 
 To complete the CUDA setup, you must include the following lines to the end of your
 `.bashrc` file in your home directory:
