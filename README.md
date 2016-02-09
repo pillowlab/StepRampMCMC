@@ -16,13 +16,14 @@ Information Criterion (DIC).
 - MATLAB version R2013a (or above) with statistics toolbox
 - Nvidia CUDA toolkit (version 7.0 recommended)
 - Nvidia graphics card (compute version 1.3 or above. See the list provided by Nvidia at https://developer.nvidia.com/cuda-gpus  At least 1GB of
-graphics memory is recommended. Apologies to AMD users.)
+graphics memory is recommended. Apologies to AMD users.) The code uses double precision floating point arithmetic. Although the code will run on Nvidia cars with the proper compute version, it may be extremely slow in some lines of gaming cards. For example, the GTX 900 series runs double precision operations at approximately 1/32 the speed of single precision operations.
 
 
 ### Recommended: ###
 
--    Ubuntu 15.04
+-   Ubuntu 15.04
 -   16+GB RAM
+-   NVidia Titan, Titan Z, or Tesla card
 
 
 Release Notes
