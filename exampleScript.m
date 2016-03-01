@@ -17,8 +17,8 @@
 addAllPaths;
 
 %% gets spikes from a simulated neuron
-% timeSeries = simulateRampingModel();
-timeSeries = simulateSteppingModel();
+timeSeries = simulateRampingModel();
+% timeSeries = simulateSteppingModel();
 
 %% gets parameters
 params = setupMCMCParams();

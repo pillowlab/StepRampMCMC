@@ -80,18 +80,6 @@ title('Coherence sorted');
 hold off
 drawnow;
 
-%% Stepping model fit
-kcResetDevice(); %does this reset thing to make sure GPU is ready - might not be necessary
-
-[StepFit, StepSamples] = fitSteppingModel(timeSeries,params);
-[StepModelComp.DIC, StepModelComp.l_like,StepModelComp.DIClikelihoods ] = getSteppingDIC(StepSamples,params,StepFit,timeSeries);
-
-DICs(1) = StepModelComp.DIC;
-
-save(resultsFiles.step,'timeSeries','params','StepModelComp','StepFit','-v7.3');
-save(samplesFiles.step,'StepSamples','-v7.3');
-clear StepSamples
-
 %% Ramping model fit
 kcResetDevice(); %does this reset thing to make sure GPU is ready - might not be necessary
 
@@ -104,6 +92,20 @@ DICs(2) = RampModelComp.DIC;
 save(resultsFiles.ramp,'timeSeries','params','RampModelComp','RampFit','-v7.3');
 save(samplesFiles.ramp,'RampSamples','-v7.3');
 clear RampSamples
+
+%% Stepping model fit
+kcResetDevice(); %does this reset thing to make sure GPU is ready - might not be necessary
+
+[StepFit, StepSamples] = fitSteppingModel(timeSeries,params);
+[StepModelComp.DIC, StepModelComp.l_like,StepModelComp.DIClikelihoods ] = getSteppingDIC(StepSamples,params,StepFit,timeSeries);
+
+DICs(1) = StepModelComp.DIC;
+
+save(resultsFiles.step,'timeSeries','params','StepModelComp','StepFit','-v7.3');
+save(samplesFiles.step,'StepSamples','-v7.3');
+clear StepSamples
+
+
 
 
 

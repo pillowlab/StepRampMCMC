@@ -87,6 +87,10 @@ MATLAB, `cd` into the directory `code/CUDAlib/` and then:
      ``/usr/local/cuda/samples/common/inc/exception.h``
      **Solution**: This problem is associated with older versions of CUDA and can be ignored. Upgrading to version 7.0 eliminates this warning.
 
+This code was made before the current MATLAB versions (R2015) with better built-in functionality between gpuArrays and mex files.
+Therefore, we include our own wrapper to place data on the GPU from MATLAB for mex functions along with these specific compiling functions.
+
+
 Running the Model Comparison
 ===================
 
