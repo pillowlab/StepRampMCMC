@@ -240,6 +240,10 @@ for ss = 2:totalSamples
     if(isnan( RampSamples.w2s(ss) ) )
         RampSamples.w2s(ss)     = RampSamples.w2s(ss-1);
         warning('Unknown problem with sampling drift variance (most likely numerical error). Keeping previous sample.');
+        if(params.rampPrior.w2_shape <= 1)
+            warning('Note: the current prior on the drift variance does not have a mean (shape <= 1). Suggested alternate values for a more constraining prior are given in setupMCMCParams.m');
+            
+        end
     end    
     
     

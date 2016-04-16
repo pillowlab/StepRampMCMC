@@ -63,6 +63,9 @@ params.rampPrior.beta_sigma = 0.1; %(default: 0.1) p(\beta_c) = \frac{1}{2*beta_
 %diffusion variance (\omega^2)   inverse gamma distribution
 params.rampPrior.w2_shape = 0.02; %(default: 0.02)
 params.rampPrior.w2_scale = 0.02; %(default: 0.02) p(\omega^2) = \frac{w2_shape^w2_scale}{\Gamma(w2_shape)} (\omega^2)^{-w2_shape-1} \exp(-\frac{w2_scale}{\omega^2})
+% Suggested alternative values
+%   params.rampPrior.w2_shape = 2;
+%   params.rampPrior.w2_scale = 0.0025; 
 
 %initial level (l_0)  truncated normal distribution
 params.rampPrior.l0_mu    = 0;  %(default: 0)
