@@ -65,12 +65,14 @@ __global__ void kcMoveParticles(KC_FP_TYPE * y, KC_FP_TYPE * pos, KC_FP_TYPE * w
             KC_FP_TYPE maxI = fmin(1.0-1e-20, fmax(  normcdf((1.0-mu)/sig),1e-20   ));
             pos[idx]    = fmin(1.0-1e-20, normcdfinv(maxI*randN[pidx])*sig + mu);
             posc[pidx]  = pos[idx];
-            KC_FP_TYPE log_pi_k = -log(maxI)-0.5*log(2.0*M_PI*sig2) - 0.5/sig2*pow(pos[idx]-mu,2.0);
+            KC_FP_TYPE dpos = pos[idx]-mu;
+            KC_FP_TYPE log_pi_k = -log(maxI)-0.5*log(2.0*M_PI*sig2) - 0.5/sig2*(dpos*dpos);
             
             //to be stored for each particle: ncdf, lw, lw2
             ncdf[idx]     = normcdf((1-mup)/sw); 
             
-            KC_FP_TYPE log_p  = -0*log(maxI) -0.5*log(2*M_PI*w)- 0.5/w*pow(pos[idx]- mup,2.0);
+            KC_FP_TYPE dposp = pos[idx]-mup;
+            KC_FP_TYPE log_p  = -0*log(maxI) -0.5*log(2*M_PI*w)- 0.5/w*(dposp*dposp);
             log_li[pidx]  = -h(pos[idx],g,dt)+y[row]*(log(fmax(h(pos[idx],g,1.0),1e-30))+log(dt))-lgamma(y[row]+1);
             
             KC_FP_TYPE pw = (t==0)?(log(1/(KC_FP_TYPE)numParticles) ):( log(fmax(wt[idx-1], 1e-30)) );
@@ -113,7 +115,7 @@ __global__ void kcNormalizeWeights(KC_FP_TYPE * y, KC_FP_TYPE * wt, KC_FP_TYPE *
                 int pidx     = tr_num*numParticles+p_num;
                 wt[idx]      = lw[pidx] /weightSum;
                 wt_p[pidx]   = lw2[pidx]/weightSum2;
-                n_eff_den   += pow(wt[idx],2);
+                n_eff_den   += wt[idx]*wt[idx];
                 cumsum[pidx] = (p_num>0)?(cumsum[pidx-1]+wt[idx]):(wt[idx]);//for resampling
             }
             
