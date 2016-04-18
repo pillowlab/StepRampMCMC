@@ -87,6 +87,9 @@ MATLAB, `cd` into the directory `code/CUDAlib/` and then:
 -    Compiler gives a warning about a CUDA header file such as
      ``/usr/local/cuda/samples/common/inc/exception.h``
      **Solution**: This problem is associated with older versions of CUDA and can be ignored. Upgrading to version 7.0 eliminates this warning.
+     
+-    Receiving error message while running the example script `Warning: Unknown problem with sampling drift variance (most likely numerical error).` 
+     **Solution**: The CUDA files may not have compiled correctly. Check the `GPUArchitecture` variable in coda/CUDAlib/myPath.m to make sure it matches your GPU's compute version and recompile.
 
 This code was made before the current MATLAB versions (R2015) with better built-in functionality between gpuArrays and mex files.
 Therefore, we include our own wrapper to place data on the GPU from MATLAB for mex functions along with these specific compiling functions.
