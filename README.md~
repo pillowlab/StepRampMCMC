@@ -59,8 +59,7 @@ MATLAB, `cd` into the directory `code/CUDAlib/` and then:
 
 1.   Edit `myPath.m` and execute `myPaths;`  
  This tells the compiler where to find your MATLAB and CUDA
- installations. The MATLAB directory should be detected automatically. However, you may need to set the correct CUDA path.
- If your GPU has compute version less than 3.0, you will need to change the GPUArchitecture variable to match your GPU's compute version.
+ installations. The MATLAB directory should be detected automatically. However, you may need to set the correct CUDA path. 
  If executing this function reports an error, open `myPaths.m` and edit the
  relevant path name so it points to the correct directory.
  

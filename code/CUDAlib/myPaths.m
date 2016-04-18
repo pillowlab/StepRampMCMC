@@ -1,4 +1,4 @@
-function [ projectHome, CUDAdirectory, CUDASamplesdirectory, MATLABdirectory ] = myPaths(  )
+function [ projectHome, CUDAdirectory, CUDASamplesdirectory, MATLABdirectory, GPUArchitecture ] = myPaths(  )
 %MYPATHS this function contains path information to the CUDA and MATLAB folders.
 %   This is used for compiling CUDA files into mex files.
 
@@ -35,3 +35,7 @@ end
 %% 3. Directory of the MATLAB installation. 
 MATLABdirectory = matlabroot;  % this *shouldn't* need adjusting
 MATLABdirectory = [MATLABdirectory, '/'];
+
+%% 4. GPU compute version
+GPUArchitecture = 'sm_30'; %default set for compute version 3.0
+                           %if your GPU has a lower compute version: ex. 2.0, then change this to 'sm_20'
