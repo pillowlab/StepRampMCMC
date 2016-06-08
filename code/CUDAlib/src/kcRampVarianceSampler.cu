@@ -29,7 +29,7 @@ __global__ void kcVarStatsTrial(KC_FP_TYPE *w1, KC_FP_TYPE *w2, int * crossingTi
         w2[idx] = KC_POW(lambdas[mBlkIdx[idx]]-l_0,2.0);
         for(int ii = mBlkIdx[idx]+1;ii < mBlkIdx[idx]+effLength;ii++) {  
             //w2[idx] += KC_POW(lambdas[ii]-(lambdas[ii-1]+b),2.0);
-            KC_FP_TYPE = lambdas[ii]-(lambdas[ii-1]+b);
+            KC_FP_TYPE dl = lambdas[ii]-(lambdas[ii-1]+b);
             w2[idx] += dl*dl;
         }
         w2[idx] /= 2.0;
