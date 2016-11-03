@@ -69,22 +69,30 @@ __global__ void kcSumGBlogpTr(const KC_FP_TYPE * log_p, KC_FP_TYPE * log_p_tr, c
 }
 
 //simulates a ramping (diffusion-to-bound) path for each trial and computes likelihood
-__global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int * betaIdx, KC_FP_TYPE * xx, const KC_FP_TYPE * b,const KC_FP_TYPE w2,const  KC_FP_TYPE l_0, const KC_FP_TYPE g, const KC_FP_TYPE dt, KC_FP_TYPE * log_p, const int NT, const int TT,  const int sim) {
+__global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int * betaIdx, KC_FP_TYPE * xx, const KC_FP_TYPE * b,const KC_FP_TYPE w2,const  KC_FP_TYPE l_0, const KC_FP_TYPE g, const KC_FP_TYPE dt, KC_FP_TYPE * log_p, const int NT, const int TT,  const int sim, const int trsPerKernel, const int trialsToSim) {
     int idx = blockIdx.x*blockDim.x+threadIdx.x;
-    if(idx < NT ) {
-        int trNum = idx;
+    
+    int trNum = idx/trsPerKernel;
+    int ss = (idx % trsPerKernel);
+    int simNum = ss + sim*trsPerKernel;
+    
+    
+    if(trNum < NT && simNum < trialsToSim && ss < trsPerKernel) {
         int T1  = trIdx[trNum];
         //xx contains zero mean Gaussian noise of variance \omega^2
         
-        xx[T1] += l_0; //xx[T1] now contains initial point for simulated diffusion trajectory for this trial
         
-        int currIdx = sim*(NT)+idx;
-        log_p[currIdx] = lh(y[T1],xx[T1],g,dt);
+        int currIdx = simNum*(NT)+trNum;
+        int x_offset = ss*TT;
+        
+        xx[T1+x_offset] += l_0; //xx[T1] now contains initial point for simulated diffusion trajectory for this trial
+        log_p[currIdx] = lh(y[T1],xx[T1+x_offset],g,dt);
+        
         for(int ii = T1+1; ii < trIdx[trNum+1];ii++) {
             //progates particle forward in time
-            xx[ii] = (xx[ii-1] >= 1.0)?1.0:KC_MIN(xx[ii] + xx[ii-1]+b[betaIdx[ii]],1.0);
+            xx[ii+x_offset] = (xx[ii-1+x_offset] >= 1.0)?1.0:KC_MIN(xx[ii+x_offset] + xx[ii-1+x_offset]+b[betaIdx[ii]],1.0);
             //log likelihood of single observation (bin) y[ii] given diffusion path is at x[ii]
-            log_p[currIdx] += lh(y[ii],xx[ii],g,dt);
+            log_p[currIdx] += lh(y[ii],xx[ii+x_offset],g,dt);
         }
     }
 }
@@ -107,6 +115,8 @@ __global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     cudaError_t ce;
 
+    int trsPerKernel = 32;
+    
     //load up trial data
     unsigned int TT = kcGetArrayNumEl(prhs[0]);
     KC_FP_TYPE * y      = kcGetArrayData(prhs[0]);
@@ -140,7 +150,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     
     
     //setup CUDA variables + random number generator
-    int randSize = TT + (((TT)%2==0)?0:1); 
+    int randSize = TT*trsPerKernel + (((TT*trsPerKernel)%2==0)?0:1); 
     KC_FP_TYPE * xx;
     checkCudaErrors(cudaMalloc((void**)&xx,randSize*sizeof(KC_FP_TYPE)));
     curandGenerator_t curandGen = 0;
@@ -161,7 +171,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     } 
     
     int blockSize = 128;
-    int nBlocks   = NT/blockSize + ((NT%blockSize==0)?0:1);
+    int nBlocks   = (NT*trsPerKernel)/blockSize + (((NT*trsPerKernel)%blockSize==0)?0:1);
     
     int blockSizeT = 128;
     int nBlocksT   = NT/blockSizeT + ((NT%blockSizeT==0)?0:1);
@@ -175,7 +185,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     checkCudaErrors(cudaMalloc((void**)&sum_log_p,sizeof(KC_FP_TYPE)*1));
     
     // generate AR1 noise
-    for(int kk = 0; kk < trialsToSim; kk++) {
+    
+    //clock_t begin, end;
+    //double time_spent;
+    //begin = clock();
+    
+    for(int kk = 0; kk < trialsToSim/trsPerKernel + ((trialsToSim%trsPerKernel==0)?0:1); kk++) {
         //generates zero mean Gaussian noise with correct variance
         curandStatus = KC_RANDOM_NORMAL_FUNCTION(curandGen,xx,randSize,0,KC_SQRT(w));
         if(curandStatus != CURAND_STATUS_SUCCESS ) {
@@ -185,7 +200,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
         //checkCudaErrors(cudaDeviceSynchronize());
 
         //calculate path + logP
-        kcSimGBPaths<<<nBlocks,blockSize>>>(y,trIdx,betaIdx,xx,b_gpu,w,l_0,g,dt,log_p,NT,TT,kk);
+        kcSimGBPaths<<<nBlocks,blockSize>>>(y,trIdx,betaIdx,xx,b_gpu,w,l_0,g,dt,log_p,NT,TT,kk,trsPerKernel,trialsToSim);
         ce = cudaDeviceSynchronize();
         if(ce != cudaSuccess) {
             mexPrintf("Error in simulating of kcSimGaussianBound.cu  ");
@@ -194,6 +209,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
             mexErrMsgTxt("CUDA errors");
         }
     }
+    //end = clock();
+    //time_spent = ((double)(end - begin))/((double)CLOCKS_PER_SEC);
+    //mexPrintf("ML = %2.4f\n",time_spent);
+    
    
     //average likelihood of each sampled path to get log p(y|\theta) for each trial
     kcSumGBlogpTr<<<nBlocksT,blockSizeT>>>(log_p,log_p_tr,NT,trialsToSim);

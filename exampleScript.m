@@ -41,12 +41,15 @@ if(~exist('./Samples/','file'))
 end
 
 %% sets which GPU to use
-kcSetDevice(0); %in case you have more than one GPU and want to select (0 is the default)
+kcSetDevice(1); %in case you have more than one GPU and want to select (0 is the default)
 
 %% sets a temporary folder to use for saving latent variables without hogging all the memory (this part of the code uses an ugly global variable)
 global DataFolder 
 DataFolder = './temp/';
+%The dependence on this variable should be gone at this point - I haven't
+%tested the script without this line to be absolutely sure.
+
 
 %% runs model comparison
 
-[DICs, StepFit, RampFit] = runModelComparison( timeSeries, params, resultsFiles, samplesFiles);
+[DICs, StepFit, RampFit, StepModelComp, RampModelComp] = runModelComparison( timeSeries, params, resultsFiles, samplesFiles);

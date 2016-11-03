@@ -8,3 +8,4 @@ addpath ./code/largeDataHandlers/
 addpath ./code/misc/
 addpath ./code/modelComparison/
 addpath ./code/modelFitting/
+addpath ~/gitCode/LIPStateSpace/Data/miriamData/

@@ -37,7 +37,7 @@
 %  The MCMC samples are saved out in a structure as well (detailed in the model fitting scripts)
 %
 
-function [DICs, StepFit, RampFit] = runModelComparison( timeSeries, params, resultsFiles, samplesFiles)
+function [DICs, StepFit, RampFit, StepModelComp, RampModelComp] = runModelComparison( timeSeries, params, resultsFiles, samplesFiles)
 
 DICs = [nan nan];
 

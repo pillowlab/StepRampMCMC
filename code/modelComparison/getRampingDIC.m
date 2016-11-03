@@ -30,7 +30,7 @@ gpu_y                = kcArrayToGPU( timeSeries.y);
 gpu_trIndex          = kcArrayToGPUint(int32(trIndex));       
 gpu_trBetaIndex      = kcArrayToGPUint(int32(betaVector));  
 
-l_like = kcRampLikelihood(gpu_y, gpu_trIndex, gpu_trBetaIndex, betas, w2s, l_0, gamma, timeSeries.delta_t, params.DIC.meanLikelihoodSamples);
+l_like = kcRampLikelihood2(gpu_y, gpu_trIndex, gpu_trBetaIndex, betas, w2s, l_0, gamma, timeSeries.delta_t, params.DIC.meanLikelihoodSamples);
 
 
 %% get log prior of fit
@@ -52,7 +52,7 @@ for ss = 1:thinRate:params.MCMC.nSamples
         fprintf('  Ramping model DIC calculations %d / %d\n',ss,params.MCMC.nSamples);
     end
     
-    DIClikelihoods(ss) = kcRampLikelihood(gpu_y, gpu_trIndex, gpu_trBetaIndex, RampSamples.betas(ss+burnIn,:), RampSamples.w2s(ss+burnIn,1), RampSamples.l_0(ss+burnIn,:), RampSamples.gammas(ss+burnIn), timeSeries.delta_t, params.DIC.likelihoodSamples);
+    DIClikelihoods(ss) = kcRampLikelihood2(gpu_y, gpu_trIndex, gpu_trBetaIndex, RampSamples.betas(ss+burnIn,:), RampSamples.w2s(ss+burnIn,1), RampSamples.l_0(ss+burnIn,:), RampSamples.gammas(ss+burnIn), timeSeries.delta_t, params.DIC.likelihoodSamples);
 end
 
 

@@ -152,7 +152,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     checkCudaErrors(cudaMemcpy(G_log_p_y_sum,priorMat,sizeof(KC_FP_TYPE)*(1)*(1),cudaMemcpyHostToDevice));    
 
     //sets up CUDA variables
-    int blockSize = 2;
+    int blockSize = 16;//2
     int numBlocks = (int)NT/(int)blockSize + ((NT%blockSize==0)?0:1);
 
     //gets each trials likelihood + derivates of gamma

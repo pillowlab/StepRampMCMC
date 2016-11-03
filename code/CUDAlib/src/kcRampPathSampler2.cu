@@ -215,7 +215,34 @@ __global__ void kcPropogateBoundaryDensity(KC_FP_TYPE * y, KC_FP_TYPE * p_clt, K
 }
 
 //Finally do that backwards sampling, <<< NT, 1 >>>
-__global__ void kcBackwardsSample(KC_FP_TYPE * sample, int * crossingTimes, KC_FP_TYPE * pos, KC_FP_TYPE * wt, KC_FP_TYPE * ncdf, KC_FP_TYPE * b, int * betaIdx, KC_FP_TYPE l_0, KC_FP_TYPE w, KC_FP_TYPE g, KC_FP_TYPE * p_cpr, KC_FP_TYPE * p_clte, KC_FP_TYPE * randUp, KC_FP_TYPE * randUb, KC_FP_TYPE * wt_p, KC_FP_TYPE * cumsum,  int * trIdx, int NT, int TT, int numParticles, int t) {
+__global__ void kcBackwardsSample1(KC_FP_TYPE * sample, int * crossingTimes, KC_FP_TYPE * pos, KC_FP_TYPE * wt, KC_FP_TYPE * ncdf, KC_FP_TYPE * b, int * betaIdx, KC_FP_TYPE l_0, KC_FP_TYPE w, KC_FP_TYPE g, KC_FP_TYPE * p_cpr, KC_FP_TYPE * p_clte, KC_FP_TYPE * randUp, KC_FP_TYPE * randUb, KC_FP_TYPE * wt_p, KC_FP_TYPE * cumsum,  int * trIdx, int NT, int TT, int numParticles, int t) {
+    int threadNum = blockIdx.x*blockDim.x + threadIdx.x;
+    int tr_num = (int)threadNum / (int)numParticles;
+    int p_num  = threadNum % numParticles;
+    
+    if(tr_num < NT) {
+        int trLength = trIdx[tr_num+1] - trIdx[tr_num];
+        int row = trIdx[tr_num] + t;
+        if(t < trLength-1 && t >= 0) {
+            //if previous sample had hit threshold
+            if(sample[row+1] >= 1) {
+                int idx = TT*p_num + row;
+                int pidx   = tr_num*numParticles+p_num;
+                wt_p[pidx] = wt[idx]*fmax(1.0-ncdf[idx+1],1e-25);
+                
+            }
+            //else, samples a particle
+            else {
+                int idx    = TT*p_num + row;
+                int pidx   = tr_num*numParticles+p_num;
+                double ds  = sample[row+1] - (pos[idx] + b[betaIdx[row]]);
+                wt_p[pidx] = wt[idx]*exp(-0.5/w*ds*ds);
+            }
+        }
+    }
+}
+
+__global__ void kcBackwardsSample2(KC_FP_TYPE * sample, int * crossingTimes, KC_FP_TYPE * pos, KC_FP_TYPE * wt, KC_FP_TYPE * ncdf, KC_FP_TYPE * b, int * betaIdx, KC_FP_TYPE l_0, KC_FP_TYPE w, KC_FP_TYPE g, KC_FP_TYPE * p_cpr, KC_FP_TYPE * p_clte, KC_FP_TYPE * randUp, KC_FP_TYPE * randUb, KC_FP_TYPE * wt_p, KC_FP_TYPE * cumsum,  int * trIdx, int NT, int TT, int numParticles, int t) {
     int tr_num = blockIdx.x*blockDim.x + threadIdx.x;
     if(tr_num < NT) {
         int trLength = trIdx[tr_num+1] - trIdx[tr_num];
@@ -254,9 +281,7 @@ __global__ void kcBackwardsSample(KC_FP_TYPE * sample, int * crossingTimes, KC_F
                     KC_FP_TYPE wtSum = 0;
                     int p_num;
                     for(p_num = 0; p_num < numParticles; p_num++) {
-                        int idx = TT*p_num + row;
                         int pidx   = tr_num*numParticles+p_num;
-                        wt_p[pidx] = wt[idx]*fmax(1.0-ncdf[idx+1],1e-25);
                         wtSum     += wt_p[pidx];
                     }
                     wtSum = fmax(wtSum,1e-30);
@@ -276,10 +301,7 @@ __global__ void kcBackwardsSample(KC_FP_TYPE * sample, int * crossingTimes, KC_F
                 KC_FP_TYPE wtSum = 0;
                 int p_num;
                 for(p_num = 0; p_num < numParticles; p_num++) {
-                    int idx    = TT*p_num + row;
                     int pidx   = tr_num*numParticles+p_num;
-                    double ds  = sample[row+1] - (pos[idx] + b[betaIdx[row]]);
-                    wt_p[pidx] = wt[idx]*exp(-0.5/w*ds*ds);
                     wtSum     += wt_p[pidx];
                 }
                 
@@ -296,6 +318,7 @@ __global__ void kcBackwardsSample(KC_FP_TYPE * sample, int * crossingTimes, KC_F
         }
     }
 }
+
 
 /*
  Performs a forward sweep of the path after backwards sampling
@@ -692,8 +715,16 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
             mexErrMsgTxt("CUDA Errors");
         }
         
+        kcBackwardsSample1 <<< nBlocks,blockSize >>> (lambdaTarget, auxiliaryTarget, pos, wt, ncdf, b_gpu, betaIdxVector, l_0,  w, g, p_cpr, p_clte, randN, randNs, wt_p, cumsum, trIdx, NT, TT, numParticles, jj); 
+        ce = cudaDeviceSynchronize();
+        if(ce != cudaSuccess) {
+            mexPrintf("Error after kcBackwardsSample<<<%d,%d>>> jj=%d/%d ",nBlocksN,blockSizeN,jj,maxTrialLength);
+            mexPrintf(cudaGetErrorString(ce));
+            mexPrintf(" (%d)\n", (int)ce);
+            mexErrMsgTxt("CUDA Errors");
+        }
 
-        kcBackwardsSample <<< nBlocksN3,blockSizeN3 >>> (lambdaTarget, auxiliaryTarget, pos, wt, ncdf, b_gpu, betaIdxVector, l_0,  w, g, p_cpr, p_clte, randN, randNs, wt_p, cumsum, trIdx, NT, TT, numParticles, jj); 
+        kcBackwardsSample2 <<< nBlocksN3,blockSizeN3 >>> (lambdaTarget, auxiliaryTarget, pos, wt, ncdf, b_gpu, betaIdxVector, l_0,  w, g, p_cpr, p_clte, randN, randNs, wt_p, cumsum, trIdx, NT, TT, numParticles, jj); 
         ce = cudaDeviceSynchronize();
         if(ce != cudaSuccess) {
             mexPrintf("Error after kcBackwardsSample<<<%d,%d>>> jj=%d/%d ",nBlocksN,blockSizeN,jj,maxTrialLength);

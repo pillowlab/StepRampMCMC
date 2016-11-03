@@ -82,7 +82,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     checkCudaErrors(cudaMalloc((void**)&w1,sizeof(KC_FP_TYPE)*NT));    
     checkCudaErrors(cudaMalloc((void**)&w2,sizeof(KC_FP_TYPE)*NT));    
     
-    int blockSize = 2;
+    int blockSize = 16;
     int numBlocks = NT/blockSize + ((NT%blockSize==0)?0:1);
     kcVarStatsTrial<<< numBlocks,blockSize >>>(w1,w2,crossingTimes,NT,trIdx,b_gpu,betaIdxVector,l_0,lambda);
 
