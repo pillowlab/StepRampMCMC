@@ -38,9 +38,9 @@ timeSeries = simulateExtendedRampingModel(ramping_model);
 % timeSeries = simulateExtendedSteppingModel();
 
 %% gets parameters
-params = setupMCMCParams();
-params.tempDataFolder = './temp/'; %temporary folder to store samples of the latent states of the ramping model
+ramp_params.tempDataFolder = './temp/'; %temporary folder to store samples of the latent states of the ramping model
                                    %if number of samples/trials is large (saves on RAM)
+step_params.tempDataFolder = './temp/'; %temporary folder to store samples of the latent states of the ramping model
 
 %% set files for output
 resultsFiles.ramp = './Results/ExtendedRampFit_Sim.mat';
