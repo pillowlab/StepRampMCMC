@@ -33,10 +33,11 @@ __device__ KC_FP_TYPE positiveBound(KC_FP_TYPE a) {
 }
 
 __device__ KC_FP_TYPE h(KC_FP_TYPE z, KC_FP_TYPE gamma, KC_FP_TYPE dt) {
-    return log(1.0+exp(z*gamma))*dt;
+    KC_FP_TYPE ex = KC_MAX(KC_MIN(KC_EXP(gamma*z),KC_MAXN),KC_MINN);
+    return ex*dt;
 }
 __device__ KC_FP_TYPE hinv(KC_FP_TYPE y, KC_FP_TYPE gamma, KC_FP_TYPE dt) {
-    return log(exp(y/dt)-1.0)/gamma;
+    return log(y/dt)/gamma;
 }
 
 //one thread per particle <<< nTrials,nParticles >>>
@@ -236,7 +237,7 @@ __global__ void kcBackwardsSample(KC_FP_TYPE * sample, int * crossingTimes, KC_F
             }
         }
         else if(t < trLength-1 && t >= 0) {
-            //else, propgate backwards
+            //else, propagate backwards
             
             //if previous sample had hit threshold
             if(sample[row+1] >= 1) {

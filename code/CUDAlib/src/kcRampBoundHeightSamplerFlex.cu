@@ -49,27 +49,31 @@ __global__ void kcSumLangevinVars(KC_FP_TYPE * der, KC_FP_TYPE * der_sum, KC_FP_
 
 
 //derivates of  firing rate function w.r.t. gamma (assuming fixed latent variables)
-__device__ KC_FP_TYPE h(KC_FP_TYPE lambda, KC_FP_TYPE gamma, KC_FP_TYPE dt) {
-    KC_FP_TYPE fr = (gamma*lambda>40)?(dt*gamma*lambda):(dt*KC_LOG(1+KC_EXP(gamma*lambda)));
-    return fr;
+__device__ KC_FP_TYPE h(KC_FP_TYPE lambda, KC_FP_TYPE gamma, KC_FP_TYPE dt, KC_FP_TYPE modelInd) {
+    if(modelInd > 0.001) {
+        KC_FP_TYPE logex = KC_MAX(KC_MINN,(gamma*lambda>100)?(gamma*lambda):KC_MIN(log1p(exp(lambda*gamma)),KC_MAXN));
+        return KC_MIN(KC_POW(logex*1.00000,modelInd)*dt,KC_MAXN);
+    }
+    else {
+        return KC_MIN(exp(lambda*gamma)*dt,KC_MAXN);
+    }
 }
 
-__device__ KC_FP_TYPE dh(KC_FP_TYPE lambda, KC_FP_TYPE gamma, KC_FP_TYPE dt) {
-    return dt*lambda/KC_MIN(KC_MAXN,(1+KC_EXP(-1*gamma*lambda)));
+__device__ KC_FP_TYPE dh(KC_FP_TYPE lambda, KC_FP_TYPE gamma, KC_FP_TYPE dt, KC_FP_TYPE modelInd) {
+    if( modelInd > 0.001) {
+        KC_FP_TYPE logex = KC_MAX(KC_MINN,(gamma*lambda>100)?(gamma*lambda):KC_MIN(log1p(exp(lambda*gamma)),KC_MAXN));
+        KC_FP_TYPE log_der = KC_MIN(lambda/(1+KC_MIN(KC_MAXN,KC_MAX(KC_MINN,exp(-lambda*gamma)))),KC_MAXN);
+	KC_FP_TYPE der = modelInd*KC_POW(logex*1.00000,modelInd-1.00)*log_der;
+        return der*dt;
+    }
+    else {
+        return KC_MIN(dt*lambda*KC_EXP(gamma*lambda),KC_MAXN);
+    }    
 }
-
-
-__device__ KC_FP_TYPE dh2_h(KC_FP_TYPE lambda, KC_FP_TYPE gamma, KC_FP_TYPE dt) {
-    KC_FP_TYPE ex  = KC_EXP(gamma*lambda);
-    KC_FP_TYPE nex = 1/ex;
-    KC_FP_TYPE lex = (gamma*lambda>40)?(gamma*lambda):KC_MAX(KC_LOG(1+ex),KC_MINN);
-    return (lambda*lambda)*dt*ex/KC_MAX(KC_MINN,((ex+2+nex)*lex));
-}
-
 
 
 // computes log p(single trial | gamma, fixed lambdas)
-__global__ void kcBoundaryLikelihoodTrial(KC_FP_TYPE * y, KC_FP_TYPE * lambdas, int * crossingTimes, int * mBlkIdx, KC_FP_TYPE g, KC_FP_TYPE dt, int NT, KC_FP_TYPE * llSum, KC_FP_TYPE * trialSum, KC_FP_TYPE * trialSumRiemann) {
+__global__ void kcBoundaryLikelihoodTrial(KC_FP_TYPE * y, KC_FP_TYPE * lambdas, int * crossingTimes, int * mBlkIdx, KC_FP_TYPE g, KC_FP_TYPE dt, int NT, KC_FP_TYPE * llSum, KC_FP_TYPE * trialSum, KC_FP_TYPE * trialSumRiemann, KC_FP_TYPE modelInd) {
     int idx = blockIdx.x*blockDim.x+threadIdx.x;
     if(idx < NT) {
 
@@ -82,16 +86,13 @@ __global__ void kcBoundaryLikelihoodTrial(KC_FP_TYPE * y, KC_FP_TYPE * lambdas, 
 
             KC_FP_TYPE trueLambda = fmin(1, ((ii-mBlkIdx[idx]) < crossingTimes[idx])?lambdas[ii]:1);
             
-            KC_FP_TYPE ex    = KC_MIN(KC_EXP( g*trueLambda),KC_MAXN);
-            KC_FP_TYPE nex   = KC_MAX(KC_EXP(-g*trueLambda),KC_MINN);
-            KC_FP_TYPE logex = (g*trueLambda<80)?(KC_MAX(KC_LOG(1+ex),KC_MINN)):(g*trueLambda);
-            llSum[idx] += y[ii]*(KC_LOG(logex)+KC_LOG(dt)) - dt*logex -lgamma(y[ii]+1);
+            KC_FP_TYPE fr    = KC_MAX(KC_MINN,h(trueLambda,g,1,modelInd));
+            llSum[idx] += y[ii]*(KC_LOG(fr)+KC_LOG(dt)) - dt*fr -lgamma(y[ii]+1);
             
-            KC_FP_TYPE dr = dh(trueLambda,g,1);
-            KC_FP_TYPE r  = KC_MAX(KC_MINN,h(trueLambda,g,1));
+            KC_FP_TYPE dr = dh(trueLambda,g,1,modelInd);
 
-            trialSum[idx] += (y[ii]/r-dt)*dr;
-            trialSumRiemann[idx] += -1*dh2_h(trueLambda,g,dt);
+            trialSum[idx] += (y[ii]/fr-dt)*dr;
+            trialSumRiemann[idx] += -dt*dr*dr/fr;
         }
     }
 }
@@ -107,6 +108,7 @@ __global__ void kcBoundaryLikelihoodTrial(KC_FP_TYPE * y, KC_FP_TYPE * lambdas, 
 //  5  = dt (bin size in seconds)
 //  6  = gPrior (contains Fisher information of gamma)
 //  7  = lPrior (contains log prior probability of gamma)
+//  8  = modelInd (power if use log1p transfer function, 0 if using exp)
 //
 //outputs (left-hand side)
 //  0  = log p(y|lambdas,gamma)
@@ -136,6 +138,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
 
     KC_FP_TYPE gPrior = mxGetScalar(prhs[6]);
     KC_FP_TYPE lPrior = mxGetScalar(prhs[7]);
+    KC_FP_TYPE modelInd = mxGetScalar(prhs[8]);
 
     //sets up space for computations on GPU
     KC_FP_TYPE * der_log_p_y;
@@ -158,7 +161,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     int numBlocks = (int)NT/(int)blockSize + ((NT%blockSize==0)?0:1);
 
     //gets each trials likelihood + derivates of gamma
-    kcBoundaryLikelihoodTrial<<< numBlocks,blockSize >>>(y,lambda,crossingTimes,trIdx,g,dt, NT,log_p_y,der_log_p_y,G_log_p_y1);
+    kcBoundaryLikelihoodTrial<<< numBlocks,blockSize >>>(y,lambda,crossingTimes,trIdx,g,dt, NT,log_p_y,der_log_p_y,G_log_p_y1,modelInd);
     checkCudaErrors(cudaDeviceSynchronize());
     
     //sums up all the trials' likelihoods and derivatives with respect to gamma

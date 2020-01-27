@@ -18,10 +18,11 @@
 #include "kcDefs.h" //see for info on anything starting with KC_
 #include "kcArrayFunctions.h"
 
-//poison log likelihood for one observation
-__device__ KC_FP_TYPE lh(KC_FP_TYPE y, KC_FP_TYPE x, KC_FP_TYPE g, KC_FP_TYPE dt) {
-    KC_FP_TYPE logex = KC_MAX((g*x>80)?g*x:KC_LOG(1.0+KC_EXP(g*x)),1e-30);
-    return y*(KC_LOG(logex)+KC_LOG(dt)) - dt*logex - KC_GAMMALN(y+1.0);
+//poisson log likelihood for one observation
+__device__ KC_FP_TYPE lh(KC_FP_TYPE y, KC_FP_TYPE x, KC_FP_TYPE g, KC_FP_TYPE dt, KC_FP_TYPE sh, KC_FP_TYPE bias, KC_FP_TYPE log_power) {
+    KC_FP_TYPE logex = (g*x>100)?(g*x):KC_MIN(log1p(KC_EXP(x*g)),KC_MAXN);
+    KC_FP_TYPE r = (KC_MIN(KC_POW(logex*1.0000000,log_power),KC_MAXN)+bias)*KC_EXP(sh);
+    return y*(KC_LOG(r)+KC_LOG(dt)) - dt*r - KC_GAMMALN(y+1.0);
 }
 
 //sums up log likelihood of each trial given model parameters
@@ -69,7 +70,7 @@ __global__ void kcSumGBlogpTr(const KC_FP_TYPE * log_p, KC_FP_TYPE * log_p_tr, c
 }
 
 //simulates a ramping (diffusion-to-bound) path for each trial and computes likelihood
-__global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int * betaIdx, KC_FP_TYPE * xx, const KC_FP_TYPE * b,const KC_FP_TYPE w2,const  KC_FP_TYPE l_0, const KC_FP_TYPE g, const KC_FP_TYPE dt, KC_FP_TYPE * log_p, const int NT, const int TT,  const int sim) {
+__global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int * betaIdx, KC_FP_TYPE * xx, const KC_FP_TYPE * b,const KC_FP_TYPE w2,const  KC_FP_TYPE l_0, KC_FP_TYPE * g, const KC_FP_TYPE dt, KC_FP_TYPE * log_p, const int NT, const int TT,  const int sim, KC_FP_TYPE * spe, int numNeur, KC_FP_TYPE * bias, KC_FP_TYPE log_power) {
     int idx = blockIdx.x*blockDim.x+threadIdx.x;
     if(idx < NT ) {
         int trNum = idx;
@@ -79,12 +80,17 @@ __global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int
         xx[T1] += l_0; //xx[T1] now contains initial point for simulated diffusion trajectory for this trial
         
         int currIdx = sim*(NT)+idx;
-        log_p[currIdx] = lh(y[T1],xx[T1],g,dt);
+        log_p[currIdx] = 0;
+        for(int nn = 0; nn < numNeur; nn++) {
+            log_p[currIdx] += lh(y[T1+nn*TT],xx[T1],g[nn],dt,spe[T1+nn*TT],bias[nn],log_power);
+        }
         for(int ii = T1+1; ii < trIdx[trNum+1];ii++) {
             //progates particle forward in time
             xx[ii] = (xx[ii-1] >= 1.0)?1.0:KC_MIN(xx[ii] + xx[ii-1]+b[betaIdx[ii]],1.0);
             //log likelihood of single observation (bin) y[ii] given diffusion path is at x[ii]
-            log_p[currIdx] += lh(y[ii],xx[ii],g,dt);
+            for(int nn = 0; nn < numNeur; nn++) {
+                log_p[currIdx] += lh(y[ii+nn*TT],xx[ii],g[nn],dt,spe[ii+nn*TT],bias[nn],log_power);
+            }
         }
     }
 }
@@ -93,14 +99,18 @@ __global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int
 // This estimation is made by Monte Carlo simulations from the model to integrate out latent variable
 //args
 //  0  = y (observations)
-//  1  = NT (number of trials)
-//  2  = trIdx (array that accesses the beta value used at each timepoint, y being indexed at 0. Includes final value that should be length of y)
-//  3  = betaIdxVector (array that gives coherence used at each bins of y. i.e., accesses the beta value used at each timepoint. values begin at 0 instead of 1 to be consistent with C, unlike MATLAB)
-//  4  = w (variance of diffusion process)
-//  5  = l_0 (starting lambda value)
-//  6  = g (absorbing boundary effective height)
-//  7  = dt (bin size in seconds)
-//  8  = number of samples to use to estimate log probability of observations (I recommend using at least 1000)
+//  1  = trIdx (array that accesses the beta value used at each timepoint, y being indexed at 0. Includes final value that should be length of y)
+//  2  = betaIdxVector (array that gives coherence used at each bins of y. i.e., accesses the beta value used at each timepoint. values begin at 0 instead of 1 to be consistent with C, unlike MATLAB)
+//  3  = spike history effect (same size as y)
+//  4  = beta values
+//  5  = w (variance of diffusion process)
+//  6  = l_0 (starting lambda value)
+//  7  = g (absorbing boundary effective height)
+//  8  = dt (bin size in seconds)
+//  9  = number of samples to use to estimate log probability of observations (I recommend using at least 1000)
+//  10  = number of neurons
+//  11  = biases
+//  12  = power
 //outputs (left-hand side)
 //  0  = log p(y|\theta)
 //  1  = log p(y|\theta) for each individual trial
@@ -108,21 +118,27 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     cudaError_t ce;
 
     //load up trial data
-    unsigned int TT = kcGetArrayNumEl(prhs[0]);
+    unsigned int TY = kcGetArrayNumEl(prhs[0]); // TY is total length of y
+    int  numNeur    = mxGetScalar(prhs[10]);
+    unsigned int TT = (int)TY/(int)numNeur; // TT is total number of bins for one neuron 
     KC_FP_TYPE * y      = kcGetArrayData(prhs[0]);
+
     int * trIdx = kcGetArrayDataInt(prhs[1]);
     unsigned int NT = kcGetArrayNumEl(prhs[1])-1;
     int * betaIdx = kcGetArrayDataInt(prhs[2],TT);
-    
+
+    // load spike history effect
+    KC_FP_TYPE * spe    = kcGetArrayData(prhs[3]);
+
     //how many simulations to use to estimate log p(y|\theta)
-    int trialsToSim    = (int)mxGetScalar(prhs[8]); 
+    int trialsToSim    = (int)mxGetScalar(prhs[9]); 
     
     //load up parameters to simulate model
-    if(mxGetClassID(prhs[3]) != KC_FP_TYPE_MATLAB) {
+    if(mxGetClassID(prhs[4]) != KC_FP_TYPE_MATLAB) {
         mexErrMsgTxt("Beta input wrong floating point type (kcSimGaussianBound)!");
     }
-    KC_FP_TYPE * b      = (KC_FP_TYPE *)mxGetPr(prhs[3]);
-    int   numBetas = mxGetNumberOfElements(prhs[3]);
+    KC_FP_TYPE * b      = (KC_FP_TYPE *)mxGetPr(prhs[4]);
+    int   numBetas = mxGetNumberOfElements(prhs[4]);
     KC_FP_TYPE * b_gpu;
 
     ce = cudaMalloc((void**)&b_gpu,sizeof(KC_FP_TYPE)*numBetas);
@@ -132,13 +148,20 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
         mexPrintf(" (%d)\n", (int)ce);
     }    
     checkCudaErrors(cudaMemcpy(b_gpu,b,sizeof(KC_FP_TYPE)*numBetas,cudaMemcpyHostToDevice));
-    KC_FP_TYPE  w      = mxGetScalar(prhs[4]);
-    KC_FP_TYPE  l_0    = mxGetScalar(prhs[5]);
-    KC_FP_TYPE  g      = mxGetScalar(prhs[6]);
-    KC_FP_TYPE  dt     = mxGetScalar(prhs[7]);
+
+    KC_FP_TYPE  w      = mxGetScalar(prhs[5]);
+    KC_FP_TYPE  l_0    = mxGetScalar(prhs[6]);
+    KC_FP_TYPE * g;
+    checkCudaErrors(cudaMalloc((void**)&g,sizeof(KC_FP_TYPE)*numNeur)); // number of gammas is numNeurons   
+    checkCudaErrors(cudaMemcpy(g,(KC_FP_TYPE*)mxGetPr(prhs[7]),sizeof(KC_FP_TYPE)*numNeur,cudaMemcpyHostToDevice));
+    KC_FP_TYPE  dt     = mxGetScalar(prhs[8]);
     
+    KC_FP_TYPE * bias;
+    checkCudaErrors(cudaMalloc((void**)&bias,sizeof(KC_FP_TYPE)*numNeur)); // number of biases is numNeurons   
+    checkCudaErrors(cudaMemcpy(bias,(KC_FP_TYPE*)mxGetPr(prhs[11]),sizeof(KC_FP_TYPE)*numNeur,cudaMemcpyHostToDevice));
     
-    
+    KC_FP_TYPE  log_power     = mxGetScalar(prhs[12]);
+
     //setup CUDA variables + random number generator
     int randSize = TT + (((TT)%2==0)?0:1); 
     KC_FP_TYPE * xx;
@@ -187,7 +210,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
         //checkCudaErrors(cudaDeviceSynchronize());
 
         //calculate path + logP
-        kcSimGBPaths<<<nBlocks,blockSize>>>(y,trIdx,betaIdx,xx,b_gpu,w,l_0,g,dt,log_p,NT,TT,kk);
+        kcSimGBPaths<<<nBlocks,blockSize>>>(y,trIdx,betaIdx,xx,b_gpu,w,l_0,g,dt,log_p,NT,TT,kk,spe,numNeur,bias,log_power);
         ce = cudaDeviceSynchronize();
         if(ce != cudaSuccess) {
             mexPrintf("Error in simulating of kcSimGaussianBound.cu  ");
@@ -221,6 +244,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     checkCudaErrors(curandDestroyGenerator(curandGen));
     checkCudaErrors(cudaFree(xx));
     checkCudaErrors(cudaFree(b_gpu));
+    checkCudaErrors(cudaFree(g));
+    checkCudaErrors(cudaFree(bias));
     checkCudaErrors(cudaFree(log_p));
     checkCudaErrors(cudaFree(log_p_tr));
     checkCudaErrors(cudaFree(sum_log_p));

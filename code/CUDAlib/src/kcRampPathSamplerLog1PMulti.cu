@@ -32,15 +32,15 @@ __device__ KC_FP_TYPE positiveBound(KC_FP_TYPE a) {
     return fmin(fmax(a,MIN_P),MAX_P);
 }
 
-__device__ KC_FP_TYPE h(KC_FP_TYPE z, KC_FP_TYPE gamma, KC_FP_TYPE dt) {
-    return log(1.0+exp(z*gamma))*dt;
+__device__ KC_FP_TYPE h(KC_FP_TYPE z, KC_FP_TYPE gamma, KC_FP_TYPE dt, KC_FP_TYPE sh) {
+    return log1p(exp(z*gamma))*exp(sh)*dt;
 }
-__device__ KC_FP_TYPE hinv(KC_FP_TYPE y, KC_FP_TYPE gamma, KC_FP_TYPE dt) {
-    return log(exp(y/dt)-1.0)/gamma;
+__device__ KC_FP_TYPE hinv(KC_FP_TYPE y, KC_FP_TYPE gamma, KC_FP_TYPE dt, KC_FP_TYPE sh) {
+    return (log(exp(y/dt)-1.0)-sh)/gamma;
 }
 
 //one thread per particle <<< nTrials,nParticles >>>
-__global__ void kcMoveParticles(KC_FP_TYPE * y, KC_FP_TYPE * pos, KC_FP_TYPE * wt,  KC_FP_TYPE * b, int * betaIdxVector, KC_FP_TYPE l_0, KC_FP_TYPE g, KC_FP_TYPE w, KC_FP_TYPE dt, KC_FP_TYPE * randN, KC_FP_TYPE sigMult, KC_FP_TYPE * log_li, KC_FP_TYPE * lw, KC_FP_TYPE * lw2, KC_FP_TYPE * ncdf, KC_FP_TYPE * posc, int * trIdx, int NT, int TT, int numParticles, int t) {
+__global__ void kcMoveParticles(KC_FP_TYPE * y, KC_FP_TYPE * spe, KC_FP_TYPE * pos, KC_FP_TYPE * wt,  KC_FP_TYPE * b, int * betaIdxVector, KC_FP_TYPE l_0, KC_FP_TYPE * g, KC_FP_TYPE w, KC_FP_TYPE dt, KC_FP_TYPE * randN, KC_FP_TYPE sigMult, KC_FP_TYPE * log_li, KC_FP_TYPE * lw, KC_FP_TYPE * lw2, KC_FP_TYPE * ncdf, KC_FP_TYPE * posc, int * trIdx, int NT, int TT, int numParticles, int t, int numNeur) {
     int threadNum = blockIdx.x*blockDim.x + threadIdx.x;
     int tr_num = (int)threadNum / (int)numParticles;
     int p_num  = threadNum % numParticles;
@@ -73,7 +73,10 @@ __global__ void kcMoveParticles(KC_FP_TYPE * y, KC_FP_TYPE * pos, KC_FP_TYPE * w
             
             KC_FP_TYPE dposp = pos[idx]-mup;
             KC_FP_TYPE log_p  = -0*log(maxI) -0.5*log(2*M_PI*w)- 0.5/w*(dposp*dposp);
-            log_li[pidx]  = -h(pos[idx],g,dt)+y[row]*(log(fmax(h(pos[idx],g,1.0),1e-30))+log(dt))-lgamma(y[row]+1);
+            log_li[pidx] = 0;
+            for(int nn = 0; nn < numNeur; nn++) {
+                log_li[pidx] += -h(pos[idx],g[nn],dt,spe[row+TT*nn])+y[row+TT*nn]*(log(fmax(h(pos[idx],g[nn],1.0,spe[row+TT*nn]),1e-30))+log(dt))-lgamma(y[row+TT*nn]+1);
+            }
             
             KC_FP_TYPE pw = (t==0)?(log(1/(KC_FP_TYPE)numParticles) ):( log(fmax(wt[idx-1], 1e-30)) );
             lw[pidx]  = exp(pw+log_p+log_li[pidx]-log_pi_k);
@@ -124,12 +127,15 @@ __global__ void kcNormalizeWeights(KC_FP_TYPE * y, KC_FP_TYPE * wt, KC_FP_TYPE *
     }
 }
 
-
-//initial calculation - probability of each spike count coming from a rate at the bound
-__global__ void kcSetupLG(KC_FP_TYPE * y,KC_FP_TYPE * lg,KC_FP_TYPE g, KC_FP_TYPE dt,int TT) {
+//initial calculation - probability of each set of spike counts coming from a rate at the bound
+__global__ void kcSetupLG(KC_FP_TYPE * y,KC_FP_TYPE * spe,KC_FP_TYPE * lg,KC_FP_TYPE * g, KC_FP_TYPE dt,int TT, int numNeur) {
     int idx = blockIdx.x*blockDim.x + threadIdx.x;
     if(idx < TT) {
-        lg[idx] = exp( -h(1,g, dt) + y[idx]*log(fmax(h(1,g,dt),1e-30)) - lgamma(y[idx]+1));
+        KC_FP_TYPE log_sum  = 0; 
+        for(int nn = 0; nn < numNeur; nn++) {
+            log_sum += -h(1,g[nn], dt,spe[idx+TT*nn]) + y[idx+TT*nn]*log(fmax(h(1,g[nn],dt,spe[idx+TT*nn]),1e-30)) - lgamma(y[idx+TT*nn]+1);
+        }
+        lg[idx] = exp(log_sum);
     }
 }
 
@@ -211,7 +217,7 @@ __global__ void kcPropogateBoundaryDensity(KC_FP_TYPE * y, KC_FP_TYPE * p_clt, K
 }
 
 //Finally do that backwards sampling, <<< NT, 1 >>>
-__global__ void kcBackwardsSample(KC_FP_TYPE * sample, int * crossingTimes, KC_FP_TYPE * pos, KC_FP_TYPE * wt, KC_FP_TYPE * ncdf, KC_FP_TYPE * b, int * betaIdx, KC_FP_TYPE l_0, KC_FP_TYPE w, KC_FP_TYPE g, KC_FP_TYPE * p_cpr, KC_FP_TYPE * p_clte, KC_FP_TYPE * randUp, KC_FP_TYPE * randUb, KC_FP_TYPE * wt_p, KC_FP_TYPE * cumsum,  int * trIdx, int NT, int TT, int numParticles, int t) {
+__global__ void kcBackwardsSample(KC_FP_TYPE * sample, int * crossingTimes, KC_FP_TYPE * pos, KC_FP_TYPE * wt, KC_FP_TYPE * ncdf, KC_FP_TYPE * b, int * betaIdx, KC_FP_TYPE l_0, KC_FP_TYPE w, KC_FP_TYPE * g, KC_FP_TYPE * p_cpr, KC_FP_TYPE * p_clte, KC_FP_TYPE * randUp, KC_FP_TYPE * randUb, KC_FP_TYPE * wt_p, KC_FP_TYPE * cumsum,  int * trIdx, int NT, int TT, int numParticles, int t) {
     int tr_num = blockIdx.x*blockDim.x + threadIdx.x;
     if(tr_num < NT) {
         int trLength = trIdx[tr_num+1] - trIdx[tr_num];
@@ -357,7 +363,7 @@ __global__ void kcAssembleSamplingStatistics(KC_FP_TYPE * sigMat, KC_FP_TYPE * m
 //  5  = betas (the beta values)
 //  6  = w (variance of diffusion process)
 //  7  = l_0 (starting lambda value)
-//  8  = g (absorbing boundary effective height)
+//  8  = g (absorbing boundary effective height) -> numNeur x 1
 //  9  = dt (bin/timestep size)
 //  10 = numParticles
 //  11 = minEffParticles (how many effective particles per trial to keep around)
@@ -365,6 +371,8 @@ __global__ void kcAssembleSamplingStatistics(KC_FP_TYPE * sigMat, KC_FP_TYPE * m
 //  13 = maxTrialLength
 //  14 = beta/l_0 sampling vec param c (uses this as output for sampling betas, l_0)
 //  15 = beta/l_0 sampling vec param p uses this as output for sampling betas, l_0)
+//  16 = spike history effect
+//  17 = numNeurons
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     
@@ -382,13 +390,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
 
 
 
-    //init data                                                                                                                                                                                                                                                                      
+    //init data                  
+    unsigned int TY = kcGetArrayNumEl(prhs[2]); // TY is total length of y                                                                                                                                                                                                                              
     unsigned int TT = kcGetArrayNumEl(prhs[0]);
 
     KC_FP_TYPE * lambdaTarget = kcGetArrayData(prhs[0]);
     int * auxiliaryTarget = kcGetArrayDataInt(prhs[1]);
 
-    KC_FP_TYPE * y      = kcGetArrayData(prhs[2],TT);
+    KC_FP_TYPE * y      = kcGetArrayData(prhs[2],TY);
+    int  numNeur    = mxGetScalar(prhs[17]);
 
 
     int * trIdx = kcGetArrayDataInt(prhs[3]);
@@ -420,7 +430,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
 
     KC_FP_TYPE  w      = mxGetScalar(prhs[6]);
     KC_FP_TYPE  l_0    = mxGetScalar(prhs[7]);
-    KC_FP_TYPE  g      = mxGetScalar(prhs[8]);
+    KC_FP_TYPE * g;
+    checkCudaErrors(cudaMalloc((void**)&g,sizeof(KC_FP_TYPE)*numNeur)); // number of gammas is numNeurons   
+    checkCudaErrors(cudaMemcpy(g,(KC_FP_TYPE*)mxGetPr(prhs[8]),sizeof(KC_FP_TYPE)*numNeur,cudaMemcpyHostToDevice));
     KC_FP_TYPE  dt     = mxGetScalar(prhs[9]);
 
     int  numParticles    = mxGetScalar(prhs[10]);
@@ -428,6 +440,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     int  sigMult         = mxGetScalar(prhs[12]);
     int  maxTrialLength  = mxGetScalar(prhs[13]);
 
+    //load spike history effect
+    KC_FP_TYPE * spe = kcGetArrayData(prhs[16],TY);
 
     //particle weights/probabilities of hitting the bound
     KC_FP_TYPE * p_clte;
@@ -440,8 +454,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     checkCudaErrors(cudaMalloc((void**)&p_cgt,  TT*sizeof(KC_FP_TYPE)));
     checkCudaErrors(cudaMalloc((void**)&p_clt,  TT*sizeof(KC_FP_TYPE)));
     checkCudaErrors(cudaMalloc((void**)&p_cpr,  TT*sizeof(KC_FP_TYPE)));
-
-
 
     KC_FP_TYPE * wt;
     KC_FP_TYPE * wt_p;
@@ -559,8 +571,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     }
 
 
-    //__global__ void kcSetupLG(KC_FP_TYPE * y,KC_FP_TYPE * lg,KC_FP_TYPE g, KC_FP_TYPE dt,int TT) {
-    kcSetupLG <<< nBlocksT, blockSizeT >>> (y,lg,g,dt,TT);
+    //__global__ void kcSetupLG(KC_FP_TYPE * y,KC_FP_TYPE * spe,KC_FP_TYPE * lg,KC_FP_TYPE * g, KC_FP_TYPE dt,int TT, int numNeur) {
+    kcSetupLG <<< nBlocksT, blockSizeT >>> (y,spe,lg,g,dt,TT,numNeur);
     ce = cudaDeviceSynchronize();
     if(ce != cudaSuccess) {
         mexPrintf("Error after kcSetupLG<<<%d,%d>>> ",nBlocksT,blockSizeT);
@@ -594,7 +606,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
         }
         
 
-        kcMoveParticles <<< nBlocks, blockSize >>> (y,pos,wt, b_gpu,betaIdxVector,l_0,g,w,dt,randN, sigMult,log_li,lw,lw2,ncdf, posc, trIdx, NT, TT, numParticles, ii);
+        kcMoveParticles <<< nBlocks, blockSize >>> (y,spe,pos,wt, b_gpu,betaIdxVector,l_0,g,w,dt,randN, sigMult,log_li,lw,lw2,ncdf, posc, trIdx, NT, TT, numParticles, ii, numNeur);
         ce = cudaDeviceSynchronize();
         if(ce != cudaSuccess) {
             int currDev;
@@ -764,6 +776,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     checkCudaErrors(cudaFree(p_cgt_0a));
     checkCudaErrors(cudaFree(p_cgt_0b));
     checkCudaErrors(cudaFree(lg));
+    checkCudaErrors(cudaFree(g));
     checkCudaErrors(cudaFree(cumsum));
     checkCudaErrors(cudaFree(beta_sum));
     checkCudaErrors(cudaFree(sampling_c));

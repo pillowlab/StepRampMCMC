@@ -17,7 +17,7 @@ end
 % projectHome =  '/home/USERNAME/gitCode/StepRampMCMC/';
 
 %% 2. Set absolute path for directory where CUDA installation lives:
-CUDAdirectory   = '/usr/local/cuda/';
+CUDAdirectory   = '/usr/local/cuda-8.0/';
 CUDASamplesdirectory = [CUDAdirectory '/samples/']; %samples that come with the CUDA sdk - includes some convenient error checking functions
 
 
