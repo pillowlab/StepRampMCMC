@@ -7,4 +7,9 @@ addpath ./code/CUDAlib/mex/
 addpath ./code/largeDataHandlers/
 addpath ./code/misc/
 addpath ./code/modelComparison/
+addpath ./code/modelComparison/ramping/
+addpath ./code/modelComparison/stepping/
 addpath ./code/modelFitting/
+addpath ./code/modelFitting/ramping/
+addpath ./code/modelFitting/stepping/
+addpath ./code/simulateModel/

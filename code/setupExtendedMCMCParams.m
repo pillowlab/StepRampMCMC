@@ -1,6 +1,11 @@
-function params = setupMCMCParams(model)
+function params = setupExtendedMCMCParams(model)
 
-
+if ~isfield(model,'bias'), model.bias = false; end
+if ~isfield(model,'history'), model.history = false; end
+if ~isfield(model,'nlin'), model.nlin = "softplus"; end
+if ~isfield(model,'pow'), model.pow = 1.0; end
+if ~isfield(model,'MR'), model.MR = true; end
+    
 %% MCMC runs
 
 params.MCMC.nSamples = 50e3; %number of MCMC samples to get (post burn-in)
@@ -13,8 +18,8 @@ params.tempDataFolder = './temp/'; %folder to store latent variables of ramping 
 
 %% model comparison
 
-params.DIC.meanLikelihoodSamples = 3000; %num samples to use to estimate p(Data| mean parameters) for rampling model
-params.DIC.likelihoodSamples     = 1000; %num samples to use to estimate p(Data| parameter_s) for rampling model - in DIC expectation
+params.DIC.meanLikelihoodSamples = 25000; %num samples to use to estimate p(Data| mean parameters) for rampling model
+params.DIC.likelihoodSamples     = 5000; %num samples to use to estimate p(Data| parameter_s) for rampling model - in DIC expectation
 
 
 
@@ -61,25 +66,45 @@ params.rampPrior.beta_mu    = 0;   %(default: 0)
 params.rampPrior.beta_sigma = 0.1; %(default: 0.1) p(\beta_c) = \frac{1}{2*beta_sigma^2} \exp(-\frac{1}{2*beta_sigma^2} (\beta_c - beta_mu))
 
 %diffusion variance (\omega^2)   inverse gamma distribution
-params.rampPrior.w2_shape = 0.02; %(default: 0.02)
-params.rampPrior.w2_scale = 0.02; %(default: 0.02) p(\omega^2) = \frac{w2_shape^w2_scale}{\Gamma(w2_shape)} (\omega^2)^{-w2_shape-1} \exp(-\frac{w2_scale}{\omega^2})
-% Suggested alternative values
-%   params.rampPrior.w2_shape = 2;
-%   params.rampPrior.w2_scale = 0.0025; 
+params.rampPrior.w2_shape = 1.1; %(default: 1.1)
+params.rampPrior.w2_scale = 1e-3; %(default: 1e-3) p(\omega^2) = \frac{w2_scale^w2_shape}{\Gamma(w2_shape)} (\omega^2)^{-w2_shape-1} \exp(-\frac{w2_scale}{\omega^2})
 
 %initial level (l_0)  truncated normal distribution
-params.rampPrior.l0_mu    = 0;  %(default: 0)
-params.rampPrior.l0_sigma = 10; %(default: 10) p(l_0) \propto \frac{1}{2*l0_sigma^2} \exp(-\frac{1}{2*l0_sigma^2} (l_0 - l0_mu)), given l_0 < 1
+if model.bias == false
+    params.rampPrior.l0_mu    = 0;  %(default: 0)
+    params.rampPrior.l0_sigma = 10; %(default: 10) p(l_0) \propto \frac{1}{2*l0_sigma^2} \exp(-\frac{1}{2*l0_sigma^2} (l_0 - l0_mu)), given l_0 < 1
+elseif model.bias == true
+    params.rampPrior.l0_mu    = 0.5;  
+    params.rampPrior.l0_sigma = 0.5;  
+end
 
 %firing rate multiplier (\gamma)  gamma distribution
-params.rampPrior.gammaAlpha = 2;    %(default: 2)
-params.rampPrior.gammaBeta  = 0.05; %(default: 0.05) p(\gamma) = \frac{gammaBeta^{gammaAlpha} \gamma^{gammaAlpha-1} \exp(-\gamma*gammaBeta)}{\Gamma(gammaAlpha)}
-
+if model.nlin == "softplus"
+    params.rampPrior.gammaAlpha = 2;    %(default: 2)
+    params.rampPrior.gammaBeta  = 0.05; %(default: 0.05) p(\gamma) = \frac{gammaBeta^{gammaAlpha} \gamma^{gammaAlpha-1} \exp(-\gamma*gammaBeta)}{\Gamma(gammaAlpha)}
+elseif model.nlin == "power" && pow == 2
+    params.rampPrior.gammaAlpha = 3;
+    params.rampPrior.gammaBeta = 0.5;
+elseif model.nlin == "power" && pow == 0.5
+    params.rampPrior.gammaAlpha = 1;
+    params.rampPrior.gammaBeta = 1e-4;
+elseif model.nlin == "exp"
+    params.rampPrior.gammaAlpha = 3;    
+    params.rampPrior.gammaBeta  = 3;
+else
+    warning("Consider changing the prior on \gamma to match your model.")
+end
+    
 %% stepping model prior
 
 %firing rate (\alpha_s; same prior for each state) gamma distribution
-params.stepPrior.alpha.rate  = 1; %(default: 1)
-params.stepPrior.alpha.shape = 1; %(default: 1) p(\alpha_s) = \frac{alpha.rate^{alpha.shape} \alpha_s^{alpha.shape-1} \exp(-\alpha_s*alpha.rate)}{\Gamma(alpha.shape)}
+if model.history == false
+    params.stepPrior.alpha.rate  = 1; %(default: 1)
+    params.stepPrior.alpha.shape = 1; %(default: 1) p(\alpha_s) = \frac{alpha.rate^{alpha.shape} \alpha_s^{alpha.shape-1} \exp(-\alpha_s*alpha.rate)}{\Gamma(alpha.shape)}
+elseif model.history == true
+    params.stepPrior.alpha.rate  = 0.01; 
+    params.stepPrior.alpha.shape = 1;
+end
 
 %step time distribution - ``number of failures'' (r) gamma distribution
 params.stepPrior.negBin.failShape  = 2; %(default: 2)
@@ -93,3 +118,6 @@ params.stepPrior.negBin.succAlpha  = 1; %(default: 1) p(p_c)  = p_c^{negBin.succ
 params.stepPrior.switchto.alpha    = 1; %(default: 1)
 params.stepPrior.switchto.beta     = 1; %(default: 1) p(\phi_c)  = \phi_c^{switchto.alpha-1} (1-\phi_c)^{switchto.beta-1) / B(switchto.alpha, switchto.beta)
 
+%% spike history prior
+params.spikeHistoryPrior.hMu = 0;
+params.spikeHistoryPrior.hSig2 = 10;

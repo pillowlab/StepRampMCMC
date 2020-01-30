@@ -32,11 +32,11 @@ __device__ KC_FP_TYPE positiveBound(KC_FP_TYPE a) {
     return fmin(fmax(a,MIN_P),MAX_P);
 }
 
-__device__ KC_FP_TYPE h(KC_FP_TYPE z, KC_FP_TYPE gamma, KC_FP_TYPE dt) {
-    return log(1.0+exp(z*gamma))*dt;
+__device__ KC_FP_TYPE h(KC_FP_TYPE z, KC_FP_TYPE dt) {
+    return log(1.0+exp(z))*dt;
 }
-__device__ KC_FP_TYPE hinv(KC_FP_TYPE y, KC_FP_TYPE gamma, KC_FP_TYPE dt) {
-    return log(exp(y/dt)-1.0)/gamma;
+__device__ KC_FP_TYPE hinv(KC_FP_TYPE y, KC_FP_TYPE dt) {
+    return log(exp(y/dt)-1.0);
 }
 
 //one thread per particle <<< nTrials,nParticles >>>
@@ -62,18 +62,18 @@ __global__ void kcMoveParticles(KC_FP_TYPE * y, KC_FP_TYPE * pos, KC_FP_TYPE * w
             KC_FP_TYPE sig2 = sigMult*w;
             KC_FP_TYPE sig  = sqrt(sig2);
             
-            KC_FP_TYPE maxI = fmin(1.0-1e-20, fmax(  normcdf((1.0-mu)/sig),1e-20   ));
-            pos[idx]    = fmin(1.0-1e-20, normcdfinv(maxI*randN[pidx])*sig + mu);
+            KC_FP_TYPE maxI = fmin(g-1e-20, fmax(  normcdf((g-mu)/sig),1e-20   ));
+            pos[idx]    = fmin(g-1e-20, normcdfinv(maxI*randN[pidx])*sig + mu);
             posc[pidx]  = pos[idx];
             KC_FP_TYPE dpos = pos[idx]-mu;
             KC_FP_TYPE log_pi_k = -log(maxI)-0.5*log(2.0*M_PI*sig2) - 0.5/sig2*(dpos*dpos);
             
             //to be stored for each particle: ncdf, lw, lw2
-            ncdf[idx]     = normcdf((1-mup)/sw); 
+            ncdf[idx]     = normcdf((g-mup)/sw); 
             
             KC_FP_TYPE dposp = pos[idx]-mup;
             KC_FP_TYPE log_p  = -0*log(maxI) -0.5*log(2*M_PI*w)- 0.5/w*(dposp*dposp);
-            log_li[pidx]  = -h(pos[idx],g,dt)+y[row]*(log(fmax(h(pos[idx],g,1.0),1e-30))+log(dt))-lgamma(y[row]+1);
+            log_li[pidx]  = -h(pos[idx],dt)+y[row]*(log(fmax(h(pos[idx],1.0),1e-30))+log(dt))-lgamma(y[row]+1);
             
             KC_FP_TYPE pw = (t==0)?(log(1/(KC_FP_TYPE)numParticles) ):( log(fmax(wt[idx-1], 1e-30)) );
             lw[pidx]  = exp(pw+log_p+log_li[pidx]-log_pi_k);
@@ -129,7 +129,7 @@ __global__ void kcNormalizeWeights(KC_FP_TYPE * y, KC_FP_TYPE * wt, KC_FP_TYPE *
 __global__ void kcSetupLG(KC_FP_TYPE * y,KC_FP_TYPE * lg,KC_FP_TYPE g, KC_FP_TYPE dt,int TT) {
     int idx = blockIdx.x*blockDim.x + threadIdx.x;
     if(idx < TT) {
-        lg[idx] = exp( -h(1,g, dt) + y[idx]*log(fmax(h(1,g,dt),1e-30)) - lgamma(y[idx]+1));
+        lg[idx] = exp( -h(g, dt) + y[idx]*log(fmax(h(g,dt),1e-30)) - lgamma(y[idx]+1));
     }
 }
 
@@ -222,7 +222,7 @@ __global__ void kcBackwardsSample(KC_FP_TYPE * sample, int * crossingTimes, KC_F
 
             //decide whether end trial has hit boundary
             if(randUb[tr_num] < p_clte[row]) {
-                sample[row] = 1;
+                sample[row] = g;
                 crossingTimes[tr_num] = t;
             }
             //else select a particle to be end of trial (cumsum holds the CDF of the distribution over particles)
@@ -239,11 +239,11 @@ __global__ void kcBackwardsSample(KC_FP_TYPE * sample, int * crossingTimes, KC_F
             //else, propgate backwards
             
             //if previous sample had hit threshold
-            if(sample[row+1] >= 1) {
+            if(sample[row+1] >= g) {
                 //if boundary already reached
                 if(randUb[tr_num] < p_clte[row]/(p_cpr[row+1] + p_clte[row])) {
                     crossingTimes[tr_num] = t;
-                    sample[row] = 1;
+                    sample[row] = g;
                 }
                 //gets pre-crossing particle
                 else {
@@ -299,7 +299,7 @@ __global__ void kcBackwardsSample(KC_FP_TYPE * sample, int * crossingTimes, KC_F
 
 trial number given by CUDA thread
  */
-__global__ void kcForwardFinalPass( KC_FP_TYPE* lambda, const int * crossingTimes, const KC_FP_TYPE * randUni, const KC_FP_TYPE* b, const int * betaIndVec,const  KC_FP_TYPE l_0, const KC_FP_TYPE w, const int* trIdx,const  int NT, KC_FP_TYPE * beta_sum) {
+__global__ void kcForwardFinalPass( KC_FP_TYPE* lambda, const int * crossingTimes, const KC_FP_TYPE * randUni, const KC_FP_TYPE* b, const int * betaIndVec,const  KC_FP_TYPE l_0, const KC_FP_TYPE w, const int* trIdx,const  int NT, KC_FP_TYPE * beta_sum, KC_FP_TYPE g) {
     int tr_num = blockIdx.x*blockDim.x+threadIdx.x;
     if(tr_num < NT) {
         int t_0 = trIdx[tr_num];
@@ -312,9 +312,9 @@ __global__ void kcForwardFinalPass( KC_FP_TYPE* lambda, const int * crossingTime
             if(t == crossingTimes[tr_num]) {
                 //samples the first value of lambda to cross the bound (truncated normal, > 1)
                 KC_FP_TYPE mu = (t > 0)?(lambda[t_0 + t-1]+cb):l_0;
-                KC_FP_TYPE minS = normcdf((1-mu)/sqrt(w));
-                if(minS >= 1.0-1e-5) {
-                    lambda[t_0 + t] = 1;
+                KC_FP_TYPE minS = normcdf((g-mu)/sqrt(w));
+                if(minS >= g-1e-5) {
+                    lambda[t_0 + t] = g;
                 }
                 else {
                     lambda[t_0 + t] = mu+sqrt(w)*normcdfinv( minS + (1-minS)*randUni[t_0+t]);
@@ -697,7 +697,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     }
     
     //samples all latent variables beyond bound hit time
-    kcForwardFinalPass <<< nBlocksN,blockSizeN >>> (lambdaTarget, auxiliaryTarget,  randTs, b_gpu, betaIdxVector, l_0,  w, trIdx, NT, beta_sum); 
+    kcForwardFinalPass <<< nBlocksN,blockSizeN >>> (lambdaTarget, auxiliaryTarget,  randTs, b_gpu, betaIdxVector, l_0,  w, trIdx, NT, beta_sum, g); 
     ce = cudaDeviceSynchronize();
     if(ce != cudaSuccess) {
         mexPrintf("Error after kcForwardFinalPass ");
