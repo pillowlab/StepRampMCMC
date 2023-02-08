@@ -20,8 +20,8 @@
 
 //poison log likelihood for one observation
 __device__ KC_FP_TYPE lh(KC_FP_TYPE y, KC_FP_TYPE x, KC_FP_TYPE g, KC_FP_TYPE dt) {
-    KC_FP_TYPE logex = KC_MAX((g*x>80)?g*x:KC_LOG(1.0+KC_EXP(g*x)),1e-30);
-    return y*(KC_LOG(logex)+KC_LOG(dt)) - dt*logex - KC_GAMMALN(y+1.0);
+    KC_FP_TYPE ex = KC_MAX(KC_MIN(KC_EXP(g*x),KC_MAXN),KC_MINN);
+    return y*(KC_LOG(ex)+KC_LOG(dt)) - dt*ex - KC_GAMMALN(y+1.0);
 }
 
 //sums up log likelihood of each trial given model parameters
@@ -168,11 +168,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     
     //allocates sspace on GPU for simulating the likelihood
     KC_FP_TYPE * log_p;
-    //KC_FP_TYPE * log_p_2;
     KC_FP_TYPE * log_p_tr;
     KC_FP_TYPE * sum_log_p;
     checkCudaErrors(cudaMalloc((void**)&log_p,sizeof(KC_FP_TYPE)*NT*trialsToSim));
-    //checkCudaErrors(cudaMalloc((void**)&log_p_2,sizeof(KC_FP_TYPE)*NT*trialsToSim));
     checkCudaErrors(cudaMalloc((void**)&log_p_tr,sizeof(KC_FP_TYPE)*NT));
     checkCudaErrors(cudaMalloc((void**)&sum_log_p,sizeof(KC_FP_TYPE)*1));
     
@@ -197,8 +195,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
         }
     }
    
-    // log_p_2 = log_p;
-
     //average likelihood of each sampled path to get log p(y|\theta) for each trial
     kcSumGBlogpTr<<<nBlocksT,blockSizeT>>>(log_p,log_p_tr,NT,trialsToSim);
     checkCudaErrors(cudaDeviceSynchronize());
@@ -216,7 +212,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
          plhs[1] = mxCreateNumericMatrix(NT,1,KC_FP_TYPE_MATLAB,mxREAL);
          checkCudaErrors(cudaMemcpy((KC_FP_TYPE *)mxGetPr(plhs[1]),log_p_tr,NT*sizeof(KC_FP_TYPE),cudaMemcpyDeviceToHost));
     }
-
+    
+    
     //free up CUDA variables
     checkCudaErrors(curandDestroyGenerator(curandGen));
     checkCudaErrors(cudaFree(xx));
@@ -224,4 +221,5 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     checkCudaErrors(cudaFree(log_p));
     checkCudaErrors(cudaFree(log_p_tr));
     checkCudaErrors(cudaFree(sum_log_p));
+
 }

@@ -48,22 +48,22 @@ __global__ void kcSumLangevinVars(KC_FP_TYPE * der, KC_FP_TYPE * der_sum, KC_FP_
 }
 
 
-//derivates of  firing rate function w.r.t. gamma (assuming fixed latent variables)
+//derivatives of  firing rate function w.r.t. gamma (assuming fixed latent variables)
 __device__ KC_FP_TYPE h(KC_FP_TYPE lambda, KC_FP_TYPE gamma, KC_FP_TYPE dt) {
-    KC_FP_TYPE fr = (gamma*lambda>40)?(dt*gamma*lambda):(dt*KC_LOG(1+KC_EXP(gamma*lambda)));
-    return fr;
+    //return (gamma*lambda>100)?(dt*exp(100)):(dt*exp(gamma*lambda));
+    KC_FP_TYPE ex = KC_MAX(KC_MIN(KC_EXP(gamma*lambda),KC_MAXN),KC_MINN);    
+    return dt*ex;
 }
 
 __device__ KC_FP_TYPE dh(KC_FP_TYPE lambda, KC_FP_TYPE gamma, KC_FP_TYPE dt) {
-    return dt*lambda/KC_MIN(KC_MAXN,(1+KC_EXP(-1*gamma*lambda)));
+    KC_FP_TYPE ex = KC_MAX(KC_MIN(KC_EXP(gamma*lambda),KC_MAXN),KC_MINN);    
+    return dt*lambda*ex;
 }
 
 
 __device__ KC_FP_TYPE dh2_h(KC_FP_TYPE lambda, KC_FP_TYPE gamma, KC_FP_TYPE dt) {
-    KC_FP_TYPE ex  = KC_EXP(gamma*lambda);
-    KC_FP_TYPE nex = 1/ex;
-    KC_FP_TYPE lex = (gamma*lambda>40)?(gamma*lambda):KC_MAX(KC_LOG(1+ex),KC_MINN);
-    return (lambda*lambda)*dt*ex/KC_MAX(KC_MINN,((ex+2+nex)*lex));
+    KC_FP_TYPE ex = KC_MAX(KC_MIN(KC_EXP(gamma*lambda),KC_MAXN),KC_MINN);
+    return dt*lambda*lambda*ex;
 }
 
 
@@ -83,14 +83,12 @@ __global__ void kcBoundaryLikelihoodTrial(KC_FP_TYPE * y, KC_FP_TYPE * lambdas, 
             KC_FP_TYPE trueLambda = fmin(1, ((ii-mBlkIdx[idx]) < crossingTimes[idx])?lambdas[ii]:1);
             
             KC_FP_TYPE ex    = KC_MIN(KC_EXP( g*trueLambda),KC_MAXN);
-            KC_FP_TYPE nex   = KC_MAX(KC_EXP(-g*trueLambda),KC_MINN);
-            KC_FP_TYPE logex = (g*trueLambda<80)?(KC_MAX(KC_LOG(1+ex),KC_MINN)):(g*trueLambda);
-            llSum[idx] += y[ii]*(KC_LOG(logex)+KC_LOG(dt)) - dt*logex -lgamma(y[ii]+1);
+            llSum[idx] += y[ii]*(KC_LOG(ex)+KC_LOG(dt)) - dt*ex - lgamma(y[ii]+1);
             
             KC_FP_TYPE dr = dh(trueLambda,g,1);
             KC_FP_TYPE r  = KC_MAX(KC_MINN,h(trueLambda,g,1));
 
-            trialSum[idx] += (y[ii]/r-dt)*dr;
+            trialSum[idx] += y[ii]*trueLambda - dt*dr;
             trialSumRiemann[idx] += -1*dh2_h(trueLambda,g,dt);
         }
     }
@@ -133,7 +131,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     if(mxGetClassID(prhs[6]) != KC_FP_TYPE_MATLAB) {
         mexErrMsgTxt("Prior matrix input wrong floating point type (kcLangevinStep)!");
     }
-
+   
     KC_FP_TYPE gPrior = mxGetScalar(prhs[6]);
     KC_FP_TYPE lPrior = mxGetScalar(prhs[7]);
 
@@ -151,7 +149,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     KC_FP_TYPE * G_log_p_y1;
     checkCudaErrors(cudaMalloc((void**)&G_log_p_y1,sizeof(KC_FP_TYPE)*(NT)));    
     KC_FP_TYPE * G_log_p_y_sum;
-    checkCudaErrors(cudaMalloc((void**)&G_log_p_y_sum,sizeof(KC_FP_TYPE)*(1)*(1)));        
+    checkCudaErrors(cudaMalloc((void**)&G_log_p_y_sum,sizeof(KC_FP_TYPE)*(1)*(1)));    
 
     //sets up CUDA variables
     int blockSize = 2;

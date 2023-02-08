@@ -19,10 +19,13 @@
 #include "kcArrayFunctions.h"
 
 //poison log likelihood for one observation
-__device__ KC_FP_TYPE lh(KC_FP_TYPE y, KC_FP_TYPE x, KC_FP_TYPE g, KC_FP_TYPE dt) {
-    KC_FP_TYPE logex = KC_MAX((g*x>80)?g*x:KC_LOG(1.0+KC_EXP(g*x)),1e-30);
-    return y*(KC_LOG(logex)+KC_LOG(dt)) - dt*logex - KC_GAMMALN(y+1.0);
+
+__device__ KC_FP_TYPE lh(KC_FP_TYPE y, KC_FP_TYPE x, KC_FP_TYPE g, KC_FP_TYPE dt, KC_FP_TYPE modelInd) {
+    KC_FP_TYPE logex = (g*x>100)?(g*x):KC_MIN(log1p(KC_EXP(x*g)),KC_MAXN);
+    KC_FP_TYPE r = KC_MAX(KC_MINN,KC_MIN(KC_POW(logex*1.00000,modelInd),KC_MAXN));
+    return y*(KC_LOG(r)+KC_LOG(dt)) - dt*r - KC_GAMMALN(y+1.0);
 }
+
 
 //sums up log likelihood of each trial given model parameters
 __global__ void kcSumGBfinal(const KC_FP_TYPE * log_p_tr, KC_FP_TYPE * log_p,  const int NT) {
@@ -69,7 +72,7 @@ __global__ void kcSumGBlogpTr(const KC_FP_TYPE * log_p, KC_FP_TYPE * log_p_tr, c
 }
 
 //simulates a ramping (diffusion-to-bound) path for each trial and computes likelihood
-__global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int * betaIdx, KC_FP_TYPE * xx, const KC_FP_TYPE * b,const KC_FP_TYPE w2,const  KC_FP_TYPE l_0, const KC_FP_TYPE g, const KC_FP_TYPE dt, KC_FP_TYPE * log_p, const int NT, const int TT,  const int sim) {
+__global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int * betaIdx, KC_FP_TYPE * xx, const KC_FP_TYPE * b,const KC_FP_TYPE w2,const  KC_FP_TYPE l_0, const KC_FP_TYPE g, const KC_FP_TYPE dt, KC_FP_TYPE * log_p, const int NT, const int TT,  const int sim, KC_FP_TYPE modelInd) {
     int idx = blockIdx.x*blockDim.x+threadIdx.x;
     if(idx < NT ) {
         int trNum = idx;
@@ -79,12 +82,12 @@ __global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int
         xx[T1] += l_0; //xx[T1] now contains initial point for simulated diffusion trajectory for this trial
         
         int currIdx = sim*(NT)+idx;
-        log_p[currIdx] = lh(y[T1],xx[T1],g,dt);
+        log_p[currIdx] = lh(y[T1],xx[T1],g,dt,modelInd);
         for(int ii = T1+1; ii < trIdx[trNum+1];ii++) {
             //progates particle forward in time
             xx[ii] = (xx[ii-1] >= 1.0)?1.0:KC_MIN(xx[ii] + xx[ii-1]+b[betaIdx[ii]],1.0);
             //log likelihood of single observation (bin) y[ii] given diffusion path is at x[ii]
-            log_p[currIdx] += lh(y[ii],xx[ii],g,dt);
+            log_p[currIdx] += lh(y[ii],xx[ii],g,dt,modelInd);
         }
     }
 }
@@ -101,6 +104,7 @@ __global__ void kcSimGBPaths(const  KC_FP_TYPE * y, const int * trIdx, const int
 //  6  = g (absorbing boundary effective height)
 //  7  = dt (bin size in seconds)
 //  8  = number of samples to use to estimate log probability of observations (I recommend using at least 1000)
+//  9  = modelInd
 //outputs (left-hand side)
 //  0  = log p(y|\theta)
 //  1  = log p(y|\theta) for each individual trial
@@ -136,7 +140,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
     KC_FP_TYPE  l_0    = mxGetScalar(prhs[5]);
     KC_FP_TYPE  g      = mxGetScalar(prhs[6]);
     KC_FP_TYPE  dt     = mxGetScalar(prhs[7]);
-    
+    KC_FP_TYPE modelInd = mxGetScalar(prhs[9]);
+
     
     
     //setup CUDA variables + random number generator
@@ -187,7 +192,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])  {
         //checkCudaErrors(cudaDeviceSynchronize());
 
         //calculate path + logP
-        kcSimGBPaths<<<nBlocks,blockSize>>>(y,trIdx,betaIdx,xx,b_gpu,w,l_0,g,dt,log_p,NT,TT,kk);
+        kcSimGBPaths<<<nBlocks,blockSize>>>(y,trIdx,betaIdx,xx,b_gpu,w,l_0,g,dt,log_p,NT,TT,kk,modelInd);
         ce = cudaDeviceSynchronize();
         if(ce != cudaSuccess) {
             mexPrintf("Error in simulating of kcSimGaussianBound.cu  ");
